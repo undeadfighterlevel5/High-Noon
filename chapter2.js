@@ -62,6 +62,26 @@ function narrBox(txt, n) { // narrator box in the dialog style
 //  SCENE 1: UPSTAIRS ROOM AT THE SALOON (night -> lamp out -> black)
 // =====================================================================
 const ROOM_TEXT = 'AFTER A LONG DAY AND A HEARTY STEAK AND POTATO DINNER, THE NEW SHERIFF TAKES A LONG REST.';
+const QUILT = ['#b04a3a', '#d8b060', '#4a6a8a', '#e8e0cc', '#6a8a4a'];
+function sleeper() {
+  // pillow
+  R(160, 79, 24, 10, '#f4efe0'); R(160, 79, 24, 1, '#ffffff'); R(160, 88, 24, 1, '#c8c0b0');
+  // black hair on the pillow, peeking out from under the hat
+  R(160, 82, 5, 6, '#1b1410'); R(162, 88, 3, 1, '#1b1410');
+  // hat resting over his face
+  R(162, 81, 22, 2, '#6b4a2a'); R(161, 80, 2, 1, '#6b4a2a'); R(183, 80, 2, 1, '#6b4a2a'); R(166, 75, 14, 6, '#6b4a2a'); R(166, 79, 14, 1, '#3b2210'); R(168, 76, 2, 2, '#8a6a4a');
+  // quilt: one smooth mound from shoulders to feet, gently rising and falling
+  const b = (Math.sin(clock * 1.6) + 1) / 2;
+  for (let x = 178; x < 270; x++) {
+    const k = (x - 178) / 91, top = 86 - Math.round((x < 228 ? 8 + b : 5) * Math.sin(Math.PI * Math.min(1, k * 1.1)));
+    for (let y0 = 72; y0 < 100; y0 += 4) {
+      const y1 = Math.max(y0, top + 1); if (y1 >= y0 + 4) continue;
+      R(x, y1, 1, y0 + 4 - y1, x < 184 ? '#f4efe0' : QUILT[(((x - 184) / 6 | 0) + (y0 / 4) * 2) % QUILT.length]);
+    }
+    R(x, top, 1, 1, '#3b2210');
+  }
+  R(184, 78, 1, 22, '#c8c0b0'); // fold of the sheet
+}
 function roomArt(lampOn) {
   // wallpaper + ceiling beam
   R(0, 0, 320, 112, '#3e5654');
@@ -83,20 +103,12 @@ function roomArt(lampOn) {
   R(0, 106, 320, 6, '#3b2210'); R(0, 112, 320, 68, '#6e4224');
   for (const y of [116, 121, 127, 134, 142, 151, 161, 172]) R(0, y, 320, 1, '#5a3418');
   R(146, 116, 120, 16, '#7a2a2a'); R(149, 118, 114, 12, '#a8503a'); for (let x = 152; x < 260; x += 8) R(x, 123, 4, 2, '#e2b33c');
-  // bed
+  // bed frame + sheet
   R(150, 58, 8, 54, '#5a3418'); R(150, 58, 8, 2, '#9a6236'); disc(154, 55, 3, '#9a6236');
   R(158, 96, 112, 6, '#4a2a14'); R(160, 102, 4, 10, '#3b2210'); R(264, 102, 4, 10, '#3b2210');
-  R(158, 88, 112, 8, '#e8e0cc'); R(160, 80, 22, 9, '#f4efe0'); R(160, 80, 22, 1, '#ffffff');
-  const QC = ['#b04a3a', '#d8b060', '#4a6a8a', '#e8e0cc', '#6a8a4a'], breathe = Math.round(Math.sin(clock * 1.6));
-  for (let x = 176; x < 270; x += 6) for (let y = 84; y < 100; y += 4) {
-    const top = x > 188 && x < 236 ? 80 - breathe : 84; if (y < top) continue;
-    R(x, y, 6, 4, QC[((x / 6) + (y / 4) * 2) % QC.length | 0]);
-  }
-  R(188, 80 - breathe, 48, 1, '#3b2210'); R(176, 84, 12, 1, '#3b2210'); R(236, 84, 34, 1, '#3b2210');
+  R(158, 88, 112, 8, '#e8e0cc');
+  sleeper();
   R(270, 76, 8, 36, '#5a3418'); R(270, 76, 8, 2, '#9a6236'); disc(274, 73, 3, '#9a6236');
-  // the sheriff: hat over the face, mustache peeking out
-  R(166, 80, 10, 3, '#e0a070'); R(167, 82, 8, 1, '#5a3a20');
-  R(159, 78, 26, 2, '#6b4a2a'); R(164, 72, 16, 6, '#6b4a2a'); R(164, 76, 16, 1, '#3b2210'); R(166, 73, 2, 2, '#8a6a4a');
   // gun belt hanging off the headboard
   R(144, 60, 2, 20, '#4a2a14'); R(144, 60, 8, 2, '#4a2a14'); R(141, 76, 8, 13, '#3b2210'); R(142, 72, 4, 5, '#b8b8c0');
   // boots: one standing, one tipped over
@@ -276,7 +288,7 @@ function saloonWideArt(quiet) {
   // card tables (players sit behind the felt)
   ch2Fig({ ...CH2_PATRONS[0], pose: 'idle' }, 98, 116 - bob(1)); ch2Fig({ ...CH2_PATRONS[1], pose: bob(2) ? 'drink' : 'idle' }, 118, 116); cardTable(118, 0);
   ch2Fig({ ...CH2_PATRONS[2], pose: 'idle' }, 164, 116 - bob(3)); ch2Fig({ ...CH2_PATRONS[3], pose: 'idle' }, 180, 116); ch2Fig({ ...CH2_PATRONS[4], pose: 'idle' }, 196, 116 - bob(4), true); cardTable(188, 1);
-  // a hound asleep under table two
+  // a hound asleep by table two
   R(176, 114, 16, 4, '#8a5a30'); R(190, 112, 6, 5, '#8a5a30'); R(194, 114, 3, 2, '#6a4020'); R(190, 112, 2, 3, '#5a3418'); R(172, 116, 5, 1, '#8a5a30'); R(192, 113, 1, 1, INK);
   // the bar: back shelves, mirror, Gus, counter, regulars
   R(226, 56, 94, 3, '#5a3418'); R(226, 70, 94, 3, '#5a3418');
@@ -294,25 +306,23 @@ function drawEliza() {
   const fr = walking && Math.floor(clock * 7) % 2;
   ch2Fig({ ...CHARS.eliza, pose: 'idle', step: fr ? 1 : 0 }, Math.round(x), 113 - (fr ? 1 : 0));
 }
+const GUS_LINE = 6; // the room stays frozen until Gus speaks up
 CUTS.ch2Saloon = {
   set: 'saloonWide', actors: [],
   start() { CH2.enterAt = null; },
   after() { if (CH2.enterAt == null && cutLine >= 1) CH2.enterAt = clock; drawEliza(); },
   lines: [
-    ['narr', "THE NEXT MORNING. THE SALOON IS ALREADY BUSY. THE COFFEE'S STRONG AND THE CARDS ARE CROOKED."],
+    ['narr', 'THE NEXT MORNING. THE SALOON IS ALREADY BUSY.'],
     ['narr', 'THEN THE DOORS SWING OPEN, AND THE WHOLE ROOM GOES QUIET.'],
-    ['eliza', "YOU THE NEW SHERIFF? WORD IS YOU'RE QUICK WITH THAT IRON."],
-    ['eliza', "NAME'S ELIZA HOLLOWAY. MY HUSBAND JEB TOOK A JOB HAULIN' SUPPLIES FOR THE PB&J RAILROAD COMPANY."],
-    ['eliza', "THAT WAS SIX WEEKS AGO. NOT A LETTER. NOT A TELEGRAM. NOTHIN'."],
-    ['eliza', "THE COMPANY SAYS HE NEVER SHOWED UP FOR WORK. I SAY THEY'RE LYIN'."],
-    ['eliza', 'HIS LAST LETTER CAME FROM CRYSTAL CANYON. TO GET THERE, I HAVE TO CROSS INDIAN TERRITORY.'],
-    ['eliza', 'NO STAGE DRIVER WILL TAKE ME. SO I NEED A HIRED GUN.'],
-    ['eliza', "I CAN'T PAY MUCH. BUT I MAKE A MEAN PEACH COBBLER."],
+    ['eliza', "YOU THE NEW SHERIFF? I'M ELIZA HOLLOWAY. I NEED YOUR HELP."],
+    ['eliza', "MY HUSBAND JEB TOOK A JOB HAULIN' SUPPLIES FOR THE PB&J RAILROAD. NOW HE'S MISSIN'."],
+    ['eliza', "HIS LAST LETTER CAME FROM CRYSTAL CANYON. THE RAILROAD SAYS THEY DON'T KNOW WHERE HE IS."],
+    ['eliza', "GETTIN' THERE MEANS CROSSIN' INDIAN TERRITORY. I NEED A HIRED GUN. I CAN'T PAY MUCH, BUT I MAKE A MEAN PEACH COBBLER."],
     ['gus', "SHE AIN'T LYIN' ABOUT THE COBBLER, SHERIFF."],
-    ['eliza', 'WE LEAVE WITHIN THE HOUR. ARE YOU IN?'],
+    ['eliza', 'WE LEAVE IN AN HOUR.'],
   ],
 };
-SETS.saloonWide = { bg: () => saloonWideArt(CH2.enterAt != null && state === 'cut' && cutLine < 9), fg: () => {} };
+SETS.saloonWide = { bg: () => saloonWideArt(CH2.enterAt != null && state === 'cut' && cutLine < GUS_LINE), fg: () => {} };
 
 // =====================================================================
 //  SCENE 4: TO BE CONTINUED (placeholder until the next part is built)

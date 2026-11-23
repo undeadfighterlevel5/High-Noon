@@ -1,7 +1,7 @@
 // =====================================================================
 //  HIGH NOON — THE LEGEND OF MAD DOG BUCHANAN
 //  ENGINE — drawing, sound, shooting, UI. Shared by every chapter.
-//  Chapter files (chapter1.js, ...) hold the story, levels and dialogue.
+// =====================================================================
 const W = 960, H = 540, SW = 160, CW = W + SW * 2, P = 3, LW = 320, LH = 180, INK = '#1b1410';
 
 // mult = outlaw timer multiplier, hatG = hat gravity, hits = shots you can take per heart
@@ -1130,13 +1130,17 @@ function portrait(who, X, Y, talking) {
   px(2, 19, 20, 5, c.coat || c.shirt);
   if (c.vest) { px(3, 19, 5, 5, c.vest); px(16, 19, 5, 5, c.vest); }
   if (c.coat) { px(9, 19, 6, 5, c.shirt); }
-  px(10, 16, 4, 4, skD);
+  if (!c.dress) px(10, 16, 4, 4, skD);
   if (who === 'buchanan') { px(7, 17, 10, 2, '#8a1a14'); px(11, 19, 2, 2, '#8a1a14'); }
   if (who === 'banker' || who === 'pete') { px(10, 18, 4, 2, who === 'pete' ? '#c0302b' : '#1b1b1b'); px(11, 18, 2, 2, '#000'); }
   if (c.badge) { px(15, 20, 3, 3, '#e2b33c'); px(16, 19, 1, 1, '#e2b33c'); px(16, 21, 1, 1, '#fff0a8'); }
   px(5, 10, 1, 3, sk); px(18, 10, 1, 3, sk);
   px(6, 6, 12, 10, sk); px(7, 16, 10, 1, sk); px(17, 7, 1, 9, skD); px(8, 16, 8, 1, skD);
   if (c.hairLong) { px(4, 6, 2, 13, hairC); px(18, 6, 2, 13, hairC); }
+  if (c.dress) { // ladies: soft jaw, slim neck, high collar with a brooch (no shadowy block under the chin)
+    px(2, 19, 20, 5, c.shirt); px(8, 16, 8, 1, sk); px(10, 17, 4, 2, sk); px(10, 18, 4, 1, skD);
+    px(8, 19, 8, 1, shade(c.shirt, 1.3)); px(9, 20, 6, 1, shade(c.shirt, 1.3)); px(11, 20, 2, 2, c.ribbon || '#e2b33c');
+  }
   px(6, 6, 1, 5, hairC); px(17, 6, 1, 5, hairC);
   if (c.hat !== 'cowboy' && c.hat !== 'bowler') { px(6, 3, 12, 4, hairC); px(5, 5, 1, 4, hairC); px(18, 5, 1, 4, hairC); px(9, 3, 5, 1, shade(hairC, 1.25)); }
   const blink = (clock % 3.4) < 0.14;
@@ -1162,7 +1166,6 @@ function portrait(who, X, Y, talking) {
     if (who === 'dewey') { px(16, 0, 1, 2, '#2e4a5a'); px(4, 4, 2, 1, dk(hc)); }
   } else if (c.hat === 'bonnet') {
     px(4, 1, 16, 5, hc); px(3, 4, 2, 9, hc); px(19, 4, 2, 9, hc); px(5, 2, 14, 1, shade(hc, 1.15)); px(4, 6, 16, 1, shade(hc, 0.7));
-    const rb = c.ribbon || '#c04a6a'; px(9, 17, 6, 1, rb); px(11, 18, 2, 1, rb); px(10, 19, 1, 2, rb); px(13, 19, 1, 2, rb); // bow under the chin
   } else if (c.hat === 'bowler') {
     px(4, 5, 16, 1, hc); px(7, 2, 10, 3, hc); px(8, 1, 8, 1, hc); px(7, 4, 10, 1, '#5a2a2a'); px(9, 2, 1, 2, 'rgba(255,255,255,.2)');
   }
