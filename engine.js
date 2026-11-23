@@ -41,11 +41,15 @@ let cutName = 'intro', cutLine = 0, cutT = 0, musicT = 0, musicI = 0;
 let props = { set: '', list: [] }, hatsShot = 0, hatPulse = 0, targets = 0, flyT = 6, clearInfo = null;
 let cylAng = 0; // revolver cylinder rotation (degrees), animates toward the next live round
 let best = 0, wounded = false, woundT = 0;
+// story = the list of steps for the current chapter; scene = a chapter-defined custom screen (state 'scene')
+let story = null, scene = null;
+const SCENES = {}; // chapters register custom screens here
 const bests = { yellow: 0, deputy: 0, gunslinger: 0 }; // best score per mode
 try { for (const k in bests) bests[k] = +(localStorage.getItem('hns_best_' + k) || 0); if (!bests.deputy) bests.deputy = +(localStorage.getItem('hns_best') || 0); } catch (e) {}
 const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 } };
 const AMMO_BOX = { x: W + 11, y: H - 156, w: 138, h: 138 };
 const PAUSE_BTN = { x: W + 53, y: 84, w: 54, h: 54 }, SKIP_BTN = { x: W - 174, y: 12, w: 162, h: 54 };
+const CH2_TEST_BTN = { x: W - 246, y: 12, w: 234, h: 54 }; // TEST ONLY
 const TITLE_BTN = { x: W - 186, y: H - 66, w: 174, h: 54 }, QUIT_BTN = { x: W / 2 - 100, y: 336, w: 200, h: 54 };
 let touchMode = false, lastTap = 0;
 const newStats = () => ({ n: { outlaw: 0, hat: 0, bottle: 0, obj: 0 }, pts: { outlaw: 0, hat: 0, bottle: 0, obj: 0, duel: 0 } });
@@ -90,7 +94,11 @@ const NF = n => { const m = n.match(/^([A-G])(#?)(\d)$/); return 440 * Math.pow(
 const TITLE_TUNE = ('A4 - C5 E5 - E5 D5 C5 | A4 - - - E4 - A4 B4 | G4 - B4 D5 - D5 C5 B4 | E5 - - - B4 - G#4 - | ' +
               'A4 - C5 E5 - A5 G5 E5 | F5 - E5 D5 - C5 - A4 | B4 - C5 B4 - G#4 - E4 | A4 - - - - - - -').replace(/\|/g, '').trim().split(/\s+/);
 const BASS = ['A2', 'A2', 'G2', 'E2', 'A2', 'F2', 'E2', 'A2']; // one root per bar
-const MUS = { on: false, gain: null, next: 0, i: 0 }, EIGHTH = 60 / 128 / 2, MUSIC_VOL = 0.09;
+// A tune = { notes, bass, bar (eighths per bar), eighth (sec), vol, style: 'gallop' | 'waltz', birds }
+const TUNES = {
+  title: { notes: TITLE_TUNE, bass: BASS, bar: 8, eighth: 60 / 128 / 2, vol: 0.09, style: 'gallop' },
+};
+const MUS = { tune: null, gain: null, next: 0, i: 0 };
 function mNote(type, f, t, dur, vol, lp) {
   const o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.value = f;
@@ -105,30 +113,50 @@ function mClop(t, vol) { // soft hoofbeat
   fl.type = 'bandpass'; fl.frequency.value = 900; g.gain.value = vol; src.buffer = b;
   src.connect(fl).connect(g).connect(MUS.gain); src.start(t);
 }
-function musicWanted() { return state === 'title' || (state === 'cut' && step === 0 && !paused); }
+// which tune should be playing right now? (null = silence)
+function musicWanted() {
+  if (paused) return null;
+  if (state === 'scene') return scene && scene.tune ? TUNES[scene.tune] : null;
+  if (state === 'title') return TUNES.title;
+  if (state === 'cut' && CUTS[cutName] && CUTS[cutName].tune) return TUNES[CUTS[cutName].tune];
+  return null;
+}
 function music() {
   if (!ac) return;
   const want = musicWanted(), now = ac.currentTime;
-  if (want && !MUS.on) {
-    MUS.on = true; MUS.gain = ac.createGain(); MUS.gain.connect(ac.destination);
-    MUS.gain.gain.setValueAtTime(0.0001, now); MUS.gain.gain.exponentialRampToValueAtTime(MUSIC_VOL, now + 1.2);
-    MUS.next = now + 0.1; MUS.i = 0;
-  } else if (!want && MUS.on) { // fade out, then let it go
-    MUS.on = false; const g = MUS.gain;
-    g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
-    setTimeout(() => g.disconnect(), 900); return;
+  if (want !== MUS.tune) {
+    if (MUS.gain) { // fade the old tune out, then let it go
+      const g = MUS.gain; g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.7); setTimeout(() => g.disconnect(), 900);
+    }
+    MUS.tune = want; MUS.gain = null;
+    if (want) {
+      MUS.gain = ac.createGain(); MUS.gain.connect(ac.destination);
+      MUS.gain.gain.setValueAtTime(0.0001, now); MUS.gain.gain.exponentialRampToValueAtTime(want.vol, now + 1.2);
+      MUS.next = now + 0.1; MUS.i = 0;
+    }
   }
-  if (!MUS.on) return;
+  const T = MUS.tune; if (!T) return;
   while (MUS.next < now + 0.3) { // schedule a little ahead so it never stutters
-    const k = MUS.i % TITLE_TUNE.length, t = MUS.next, n = TITLE_TUNE[k], beat = k % 8;
-    if (n !== '-') { let len = 1; while (TITLE_TUNE[(k + len) % TITLE_TUNE.length] === '-' && len < 8) len++;
-      mNote('triangle', NF(n), t, len * EIGHTH * 0.95, 0.5); mNote('square', NF(n), t, Math.min(0.25, len * EIGHTH), 0.07, 1800); }
-    const root = NF(BASS[Math.floor(k / 8)]), fifth = root * 1.5;
-    if (beat === 0 || beat === 4) mNote('triangle', beat === 0 ? root : fifth, t, EIGHTH * 1.6, 0.55);   // bass
-    if (beat === 2 || beat === 6) mNote('triangle', beat === 2 ? root * 2 : fifth, t, EIGHTH * 0.6, 0.25);
-    mClop(t, beat % 2 ? 0.25 : 0.4);                                                             // gallop
-    if (beat % 2) mClop(t + EIGHTH / 2, 0.18);
-    MUS.next += EIGHTH; MUS.i++;
+    const N = T.notes, k = MUS.i % N.length, t = MUS.next, n = N[k], beat = k % T.bar, e = T.eighth;
+    if (n !== '-') {
+      let len = 1; while (N[(k + len) % N.length] === '-' && len < T.bar) len++;
+      mNote('triangle', NF(n), t, len * e * 0.95, 0.5);
+      if (T.style === 'gallop') mNote('square', NF(n), t, Math.min(0.25, len * e), 0.07, 1800);
+      else mNote('sine', NF(n) * 2, t, len * e * 0.8, 0.06);                               // soft shimmer
+    }
+    const root = NF(T.bass[Math.floor(k / T.bar) % T.bass.length]), fifth = root * 1.5;
+    if (T.style === 'gallop') {
+      if (beat === 0 || beat === 4) mNote('triangle', beat === 0 ? root : fifth, t, e * 1.6, 0.55);   // bass
+      if (beat === 2 || beat === 6) mNote('triangle', beat === 2 ? root * 2 : fifth, t, e * 0.6, 0.25);
+      mClop(t, beat % 2 ? 0.25 : 0.4);                                                             // gallop
+      if (beat % 2) mClop(t + e / 2, 0.18);
+    } else { // waltz: oom-pah-pah, like a guitar on the porch
+      if (beat === 0) mNote('triangle', root, t, e * 1.8, 0.45);
+      if (beat === 2 || beat === 4) for (const f of [root * 2, root * 2.52, root * 3]) mNote('triangle', f, t, e * 0.9, 0.12, 1400);
+      if (T.birds && beat === 0 && Math.random() < 0.22) { const bt = t + Math.random() * e * 4, bf = 2600 + Math.random() * 900; mNote('sine', bf, bt, 0.06, 0.1); mNote('sine', bf * 1.2, bt + 0.09, 0.05, 0.08); }
+    }
+    MUS.next += e; MUS.i++;
   }
 }
 const sfx = {
@@ -163,18 +191,19 @@ function partyMusic(dt) {
 // =====================================================================
 //  STORY FLOW
 // =====================================================================
-function startGame(d) {
-  diff = DIFFICULTY[d]; best = bests[diff.key]; wounded = false; lives = diff.lives; score = 0; levelStartScore = 0; S = newStats(); S0 = newStats(); pianoIdx = 0; pianoWrecked = false; goldHP = [2, 2, 2, 2];
+function startGame(d, steps) {
+  story = steps || STORY; scene = null; diff = DIFFICULTY[d]; best = bests[diff.key]; wounded = false; lives = diff.lives; score = 0; levelStartScore = 0; S = newStats(); S0 = newStats(); pianoIdx = 0; pianoWrecked = false; goldHP = [2, 2, 2, 2];
   shots = 0; hits = 0; newBest = false; paused = false; goStep(0);
 }
 function goStep(i) {
-  step = i; const s = STORY[i]; effects = []; if (s.cut) setCutLines(s.cut);
-  if (s.cut) { cutName = s.cut; cutLine = 0; cutT = 0; state = 'cut'; inDuel = s.cut === 'buchanan'; }
+  step = i; const s = story[i]; if (s.scene) { startScene(s.scene); return; } effects = []; if (s.cut) setCutLines(s.cut);
+  if (s.cut) { cutName = s.cut; cutLine = 0; cutT = 0; state = 'cut'; inDuel = s.cut === 'buchanan'; if (CUTS[cutName].start) CUTS[cutName].start(); }
   else if (s.level != null) startLevel(s.level);
   else if (s.duel) startDuel();
   else { state = 'end'; inDuel = false; saveBest(); sfx.win(); }
 }
 const nextStep = () => goStep(step + 1);
+function startScene(name) { scene = SCENES[name]; scene.t = 0; state = 'scene'; effects = []; if (scene.enter) scene.enter(); }
 function startLevel(i) {
   levelIdx = i; const L = LEVELS[i]; spots = L.spots; levelStartScore = score; S0 = cloneS(S); lives = diff.lives; // refill each level
   events = L.events.map(([t, spot, ty, win, walk], n) => ({ t, spot, walk, type: ty === 'o' ? 'outlaw' : 'bystander', window: win,
@@ -194,7 +223,7 @@ function resetDuel() {
   state = 'intro'; timer = 1.8;
 }
 const retry = () => (inDuel ? resetDuel() : resetLevel());
-function toTitle() { state = 'title'; inDuel = false; actives = []; paused = false; }
+function toTitle() { scene = null; state = 'title'; inDuel = false; actives = []; paused = false; }
 function advanceCut() {
   const ln = CUTS[cutName].lines[cutLine];
   if (Math.floor(cutT * 45) < ln[1].length) { cutT = 99; return; }
@@ -415,6 +444,7 @@ function update(dt) {
     confetti.forEach(c => { c.y += c.vy * dt; c.x += c.vx * dt; }); confetti = confetti.filter(c => c.y < LH);
   } else confetti = [];
 
+  if (state === 'scene') { scene.t += dt; if (scene.update) scene.update(dt); return; }
   if (state === 'cut' || state === 'end' || state === 'tally' || state === 'title' || state === 'over') {
     if (state === 'cut') cutT += dt;
     if (state === 'tally') { tallyT += dt; const k = Math.floor(tallyT / 0.45); if (k !== tallyK) { tallyK = k; sfx.blip(); } }
@@ -941,6 +971,7 @@ function drawWorld() {
     const list = c.set === 'party' ? propsForSet('saloonInt', true) : propsForSet(c.set, false);
     set = drawStage(c.set, list, c.party ? drawLadies : undefined); drawActors(c, !!c.party); if (c.after) c.after();
   } else if (state === 'title') { set = SETS.town; set.bg(); }
+  else if (state === 'scene') { scene.world(); set = {}; }
   else if (state === 'end' || state === 'tally') { set = drawStage('party', propsForSet('saloonInt', true), drawLadies); drawActors(CUTS.party, true); }
   else {
     const name = inDuel ? 'street' : LEVELS[levelIdx].set;
@@ -1094,7 +1125,7 @@ function portrait(who, X, Y, talking) {
   const c = CHARS[who], S = 6, px = (x, y, w, h, col) => rect(X + x * S, Y + y * S, w * S, h * S, col);
   const dk = col => shade(col, 0.72);
   const sk = c.skin, skD = dk(sk), hairC = c.hair, bc = c.beardC || hairC;
-  px(0, 0, 24, 24, who === 'buchanan' ? '#4a1410' : '#2e4a5a');
+  px(0, 0, 24, 24, c.bg || (who === 'buchanan' ? '#4a1410' : '#2e4a5a'));
   for (let y = 0; y < 24; y += 4) px(0, y, 24, 1, 'rgba(255,255,255,.05)');
   px(2, 19, 20, 5, c.coat || c.shirt);
   if (c.vest) { px(3, 19, 5, 5, c.vest); px(16, 19, 5, 5, c.vest); }
@@ -1105,9 +1136,12 @@ function portrait(who, X, Y, talking) {
   if (c.badge) { px(15, 20, 3, 3, '#e2b33c'); px(16, 19, 1, 1, '#e2b33c'); px(16, 21, 1, 1, '#fff0a8'); }
   px(5, 10, 1, 3, sk); px(18, 10, 1, 3, sk);
   px(6, 6, 12, 10, sk); px(7, 16, 10, 1, sk); px(17, 7, 1, 9, skD); px(8, 16, 8, 1, skD);
+  if (c.hairLong) { px(4, 6, 2, 13, hairC); px(18, 6, 2, 13, hairC); }
   px(6, 6, 1, 5, hairC); px(17, 6, 1, 5, hairC);
+  if (c.hat !== 'cowboy' && c.hat !== 'bowler') { px(6, 3, 12, 4, hairC); px(5, 5, 1, 4, hairC); px(18, 5, 1, 4, hairC); px(9, 3, 5, 1, shade(hairC, 1.25)); }
   const blink = (clock % 3.4) < 0.14;
-  px(8, 9, 3, 1, hairC); px(13, 9, 3, 1, hairC);
+  if (c.dress) { px(8, 9, 2, 1, hairC); px(14, 9, 2, 1, hairC); px(7, 13, 2, 1, '#e8908a'); px(15, 13, 2, 1, '#e8908a'); }
+  else { px(8, 9, 3, 1, hairC); px(13, 9, 3, 1, hairC); }
   if (blink) { px(8, 11, 2, 1, INK); px(14, 11, 2, 1, INK); }
   else {
     px(8, 10, 2, 2, '#ffffff'); px(9, 10, 1, 2, INK); px(14, 10, 2, 2, '#ffffff'); px(15, 10, 1, 2, INK);
@@ -1119,13 +1153,16 @@ function portrait(who, X, Y, talking) {
   if (c.face === 'beard') { px(6, 13, 12, 4, bc); px(7, 17, 10, 1, bc); px(8, 18, 8, 1, bc); }
   if (c.face === 'stubble') for (const [x, y] of [[7, 14], [9, 16], [8, 15], [16, 14], [15, 15], [14, 16], [11, 17], [13, 16]]) px(x, y, 1, 1, dk(skD));
   const open = talking && Math.floor(clock * 9) % 2;
-  if (open) { px(10, 14, 4, 2, '#3a0f0a'); px(11, 15, 2, 1, '#c0302b'); } else px(10, 15, 4, 1, '#5a2a1a');
+  if (open) { px(10, 14, 4, 2, '#3a0f0a'); px(11, 15, 2, 1, '#c0302b'); } else px(10, 15, 4, 1, c.dress ? '#b04a4a' : '#5a2a1a');
   if (c.face === 'mustache') { px(9, 13, 6, 1, bc); px(8, 14, 1, 1, bc); px(15, 14, 1, 1, bc); if (who === 'sheriff') { px(8, 13, 8, 2, bc); px(7, 14, 1, 2, bc); px(16, 14, 1, 2, bc); } }
   const hc = c.hatC || hairC;
   if (c.hat === 'cowboy') {
     px(1, 5, 22, 1, hc); px(2, 4, 20, 1, hc); px(7, 0, 10, 4, hc); px(11, 0, 2, 1, who === 'buchanan' ? '#4a1410' : '#2e4a5a');
     px(7, 3, 10, 1, who === 'sheriff' ? '#5a3418' : INK); px(8, 1, 1, 2, 'rgba(255,255,255,.25)');
     if (who === 'dewey') { px(16, 0, 1, 2, '#2e4a5a'); px(4, 4, 2, 1, dk(hc)); }
+  } else if (c.hat === 'bonnet') {
+    px(4, 1, 16, 5, hc); px(3, 4, 2, 9, hc); px(19, 4, 2, 9, hc); px(5, 2, 14, 1, shade(hc, 1.15)); px(4, 6, 16, 1, shade(hc, 0.7));
+    const rb = c.ribbon || '#c04a6a'; px(9, 17, 6, 1, rb); px(11, 18, 2, 1, rb); px(10, 19, 1, 2, rb); px(13, 19, 1, 2, rb); // bow under the chin
   } else if (c.hat === 'bowler') {
     px(4, 5, 16, 1, hc); px(7, 2, 10, 3, hc); px(8, 1, 8, 1, hc); px(7, 4, 10, 1, '#5a2a2a'); px(9, 2, 1, 2, 'rgba(255,255,255,.2)');
   }
@@ -1187,7 +1224,9 @@ function draw() {
     if (blink) text('CHOOSE YOUR BADGE', W / 2, 296, 16, '#ffffff', 'center');
     button(BTN.yellow, 'YELLOW BELLY'); button(BTN.deputy, 'DEPUTY'); button(BTN.gunslinger, 'GUNSLINGER');
     for (const k in BTN) if (bests[k]) text('BEST ' + bests[k], BTN[k].x + BTN[k].w / 2, 440, 16, '#ffd23f', 'center');
+    if (SCENES.ch2Room) smallBtn(CH2_TEST_BTN, 'CHAPTER 2 >'); // TEST ONLY: jump straight to chapter 2
   }
+  if (state === 'scene' && scene.ui) scene.ui();
   if (state === 'cut') drawDialog();
   if (state === 'intro') {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
@@ -1239,6 +1278,8 @@ cv.addEventListener('pointerdown', e => {
   audio(); mouse = toGame(e); touchMode = e.pointerType !== 'mouse'; lastTap = performance.now();
   if (paused) { if (inBox(mouse.x, mouse.y, QUIT_BTN)) toTitle(); else paused = false; return; }
   if (canPause() && inBox(mouse.x, mouse.y, PAUSE_BTN)) { paused = true; return; }
+  if (state === 'title' && SCENES.ch2Room && inBox(mouse.x, mouse.y, CH2_TEST_BTN)) { startScene('ch2Room'); return; } // TEST ONLY
+  if (state === 'scene') { if (scene.tap) scene.tap(mouse.x, mouse.y); return; }
   if (state === 'title') { for (const k in BTN) if (inBox(mouse.x, mouse.y, BTN[k])) { startGame(k); break; } return; }
   if (state === 'cut') { if (inBox(mouse.x, mouse.y, SKIP_BTN)) nextStep(); else advanceCut(); return; }
   if (state === 'end') { state = 'tally'; tallyT = 0; tallyK = 0; sfx.clear(); return; }
@@ -1254,6 +1295,7 @@ window.addEventListener('keydown', e => {
   if (k === 'p' && canPause()) { paused = !paused; return; }
   if (paused) return;
   if ((k === ' ' || k === 'enter') && state === 'cut') { e.preventDefault(); advanceCut(); }
+  if ((k === ' ' || k === 'enter') && state === 'scene' && scene.key) { e.preventDefault(); scene.key(k); }
   if (k === 'escape') { if (state === 'cut') nextStep(); else if (state === 'over') toTitle(); }
   if (k === 'r' && SHOOTABLE.includes(state)) reload();
 });

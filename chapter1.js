@@ -119,7 +119,7 @@ const SPEAK = {
   buchanan: { name: 'MAD DOG BUCHANAN', color: '#ff6b5b' },
 };
 const CUTS = {
-  intro: { set: 'town', actors: [{ who: 'dewey', x: 150, pose: 'cower' }], after: () => barrel(166, 104, 24, 20), lines: [
+  intro: { set: 'town', tune: 'title', actors: [{ who: 'dewey', x: 150, pose: 'cower' }], after: () => barrel(166, 104, 24, 20), lines: [
     ['narr', 'DUSTWATER GULCH, 1881. MAD DOG BUCHANAN AND HIS GANG HAVE TAKEN OVER THE TOWN.'],
     ['dewey', "PSST! OVER HERE! I'M DEPUTY DEWEY. I'M GUARDIN' THIS BARREL. *HIC*"],
     ['dewey', "THEY LOCKED UP THE SHERIFF AND THEY'RE ROBBIN' THE BANK BY SUNDOWN."],
