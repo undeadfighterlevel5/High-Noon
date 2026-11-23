@@ -44,6 +44,8 @@ let best = 0, wounded = false, woundT = 0;
 // story = the list of steps for the current chapter; scene = a chapter-defined custom screen (state 'scene')
 let story = null, scene = null;
 const SCENES = {}; // chapters register custom screens here
+// run = a chapter-defined moving level (e.g. the wagon ride). It plugs into the normal play / hurt / clear flow.
+let run = null; const RUNS = {};
 const bests = { yellow: 0, deputy: 0, gunslinger: 0 }; // best score per mode
 try { for (const k in bests) bests[k] = +(localStorage.getItem('hns_best_' + k) || 0); if (!bests.deputy) bests.deputy = +(localStorage.getItem('hns_best') || 0); } catch (e) {}
 const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 } };
@@ -118,6 +120,7 @@ function musicWanted() {
   if (paused) return null;
   if (state === 'scene') return scene && scene.tune ? TUNES[scene.tune] : null;
   if (state === 'title') return TUNES.title;
+  if (run && run.tune && ['intro', 'play', 'clear'].includes(state)) return TUNES[run.tune];
   if (state === 'cut' && CUTS[cutName] && CUTS[cutName].tune) return TUNES[CUTS[cutName].tune];
   return null;
 }
@@ -192,13 +195,14 @@ function partyMusic(dt) {
 //  STORY FLOW
 // =====================================================================
 function startGame(d, steps) {
-  story = steps || STORY; scene = null; diff = DIFFICULTY[d]; best = bests[diff.key]; wounded = false; lives = diff.lives; score = 0; levelStartScore = 0; S = newStats(); S0 = newStats(); pianoIdx = 0; pianoWrecked = false; goldHP = [2, 2, 2, 2];
+  story = steps || STORY; scene = null; run = null; diff = DIFFICULTY[d]; best = bests[diff.key]; wounded = false; lives = diff.lives; score = 0; levelStartScore = 0; S = newStats(); S0 = newStats(); pianoIdx = 0; pianoWrecked = false; goldHP = [2, 2, 2, 2];
   shots = 0; hits = 0; newBest = false; paused = false; goStep(0);
 }
 function goStep(i) {
-  step = i; const s = story[i]; if (s.scene) { startScene(s.scene); return; } effects = []; if (s.cut) setCutLines(s.cut);
+  step = i; run = null; const s = story[i]; if (s.scene) { startScene(s.scene); return; } effects = []; if (s.cut) setCutLines(s.cut);
   if (s.cut) { cutName = s.cut; cutLine = 0; cutT = 0; state = 'cut'; inDuel = s.cut === 'buchanan'; if (CUTS[cutName].start) CUTS[cutName].start(); }
   else if (s.level != null) startLevel(s.level);
+  else if (s.run) startRun(s.run);
   else if (s.duel) startDuel();
   else { state = 'end'; inDuel = false; saveBest(); sfx.win(); }
 }
@@ -222,8 +226,14 @@ function resetDuel() {
   boss = { spot: 'street', type: 'outlaw', spec: { ...CHARS.buchanan, pose: 'holster' }, age: 0, window: 99, rise: 1, dead: false, deadTime: 0, boss: true };
   state = 'intro'; timer = 1.8;
 }
-const retry = () => (inDuel ? resetDuel() : resetLevel());
-function toTitle() { scene = null; state = 'title'; inDuel = false; actives = []; paused = false; }
+function startRun(name) { run = RUNS[name]; levelStartScore = score; S0 = cloneS(S); lives = diff.lives; resetRun(); }
+function resetRun() {
+  inDuel = false; wounded = false; time = 0; actives = []; ammo = 6; cylAng = 0; score = levelStartScore; S = cloneS(S0); effects = [];
+  props = { set: '', list: [] }; hatsShot = 0; targets = 0; run.reset();
+  state = 'intro'; timer = 1.8;
+}
+const retry = () => (run ? resetRun() : inDuel ? resetDuel() : resetLevel());
+function toTitle() { scene = null; run = null; state = 'title'; inDuel = false; actives = []; paused = false; }
 function advanceCut() {
   const ln = CUTS[cutName].lines[cutLine];
   if (Math.floor(cutT * 45) < ln[1].length) { cutT = 99; return; }
@@ -335,7 +345,7 @@ function wound(a) { // Yellow Belly: first bullet just grazes you
   if (inDuel) { state = 'duelWait'; duelT = 0; drawAt = 0.7 + Math.random() * 0.8; }
 }
 function hurt(kind, a) {
-  if (diff.hits > 1 && !wounded && (kind === 'shot' || kind === 'duel')) return wound(a);
+  if (diff.hits > 1 && !wounded && ['shot', 'duel', 'arrow', 'crash'].includes(kind)) return wound(a);
   wounded = false; lives--; lastHurt = kind; flash = 1; shake = 0.4; actives = [];
   epitaph = kind === 'bystander' ? pick(WISDOM) : pick(EPITAPHS[kind]);
   kind === 'bystander' ? sfx.oops() : sfx.hurt();
@@ -356,6 +366,7 @@ function shoot(sx, sy) {
   if (inDuel && state === 'duelWait') return hurt('early');
   // 1) hats in the air
   for (let i = effects.length - 1; i >= 0; i--) { const e = effects[i]; if (e.hat && inBox(x, y, hatBox(e))) return shootHat(e, x); }
+  if (run) { if (!run.shoot(x, y)) miss(x, y); return; }
   if (inDuel) {
     if (state === 'duelDraw' && inBox(x, y, spots.street)) {
       hits++; boss.dead = true; boss.deadTime = 0; knockOff(boss); sfx.hit();
@@ -450,6 +461,7 @@ function update(dt) {
     if (state === 'tally') { tallyT += dt; const k = Math.floor(tallyT / 0.45); if (k !== tallyK) { tallyK = k; sfx.blip(); } }
     return;
   }
+  if (run && (state === 'intro' || state === 'clear')) run.tick(dt); // the trail keeps rolling
   if (state === 'intro') {
     timer -= dt;
     if (timer <= 0) {
@@ -464,6 +476,7 @@ function update(dt) {
   if (state === 'duelDraw') { duelT += dt; boss.age = duelT; boss.window = diff.draw; if (duelT >= diff.draw) hurt('duel'); return; }
   if (state === 'duelWon') { timer -= dt; if (timer <= 0 && !hatsAloft()) nextStep(); return; } // Buchanan's hat can be juggled too
   if (state !== 'play') return;
+  if (run) { time += dt; run.update(dt); if (state === 'play' && run.done() && !hatsAloft()) enterClear(); return; }
 
   time += dt;
   updateProps(dt);
@@ -533,12 +546,18 @@ function buildGrid(sp) {
   const hc = sp.hatC;
   if (sp.hat === 'cowboy') { F(6, 0, 4, 1, hc); F(5, 1, 6, 2, hc); F(5, 3, 6, 1, shade(hc, 0.6)); F(2, 4, 12, 1, hc); F(2, 3, 1, 1, hc); F(13, 3, 1, 1, hc); }
   else if (sp.hat === 'bowler') { F(6, 1, 4, 1, hc); F(5, 2, 6, 1, hc); F(5, 3, 6, 1, shade(hc, 0.6)); F(4, 4, 8, 1, hc); }
+  else if (sp.hat === 'feather') { // headband with a feather
+    if (!sp.hatOnly) F(5, 3, 6, 2, sp.hair);
+    F(5, 4, 6, 1, hc); F(7, 4, 1, 1, '#e2b33c'); F(10, 0, 1, 4, sp.featherC || '#f4efe0'); F(10, 0, 1, 1, '#3b2210');
+  }
   else if (sp.hat === 'bonnet') { F(4, 2, 8, 3, hc); F(4, 5, 1, 5, hc); F(11, 5, 1, 5, hc); F(5, 5, 6, 1, sp.hair); F(5, 11, 1, 1, '#c04a6a'); F(10, 11, 1, 1, '#c04a6a'); }
   else if (!sp.hatOnly) { F(5, 3, 6, 2, sp.hair); F(5, 5, 1, 2, sp.hair); F(10, 5, 1, 2, sp.hair); }
   if (sp.hatOnly) return G;
   const idleL = () => { F(2, 12, 2, 8, arm); F(2, 20, 2, 1, skin); }, idleR = () => { F(12, 12, 2, 8, arm); F(12, 20, 2, 1, skin); };
   switch (pose) {
     case 'aim': idleL(); F(12, 13, 3, 2, arm); F(15, 13, 1, 2, skin); F(15, 12, 3, 1, '#c8c8d0'); F(16, 13, 2, 1, '#8a8a94'); break;
+    case 'bow': idleL(); F(12, 13, 4, 2, arm); F(15, 13, 1, 2, skin); F(16, 9, 1, 10, '#7a4a20'); F(17, 8, 1, 1, '#7a4a20'); F(17, 19, 1, 1, '#7a4a20');
+      F(11, 13, 5, 1, '#d8c8a0'); F(17, 13, 1, 1, '#b8b8c0'); break;
     case 'holster': idleL(); idleR(); F(11, 21, 2, 3, '#4a2a14'); F(12, 20, 1, 1, '#b8b8c0'); break;
     case 'hands': F(2, 4, 2, 8, arm); F(12, 4, 2, 8, arm); F(2, 2, 2, 2, skin); F(12, 2, 2, 2, skin); break;
     case 'hit': F(2, 10, 2, 3, arm); F(1, 8, 2, 2, arm); F(0, 7, 2, 1, skin); F(12, 10, 2, 3, arm); F(13, 8, 2, 2, arm); F(15, 7, 2, 1, skin); break;
@@ -973,6 +992,7 @@ function drawWorld() {
   } else if (state === 'title') { set = SETS.town; set.bg(); }
   else if (state === 'scene') { scene.world(); set = {}; }
   else if (state === 'end' || state === 'tally') { set = drawStage('party', propsForSet('saloonInt', true), drawLadies); drawActors(CUTS.party, true); }
+  else if (run) { run.draw(); set = {}; }
   else {
     const name = inDuel ? 'street' : LEVELS[levelIdx].set;
     set = drawStage(name, props.list, () => { if (!inDuel) actives.filter(a => !a.walk).forEach(drawFigure); });
@@ -1074,8 +1094,8 @@ function drawHUD() { // drawn in game coords: x < 0 is the left panel, x > W is 
   panel(LX, 108, PW, 84, hb ? '#9a6236' : '#5a3418');
   spriteUI(HAT_ICON, HAT_PAL, LC - 21, 124 - (hb ? 3 : 0), 3);
   text(String(hatsShot), LC, 154, 24, hb ? '#ffd23f' : '#ffffff', 'center');
-  const head = inDuel ? null : 'LEVEL ' + (levelIdx + 1);
-  const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(LEVELS[levelIdx].name, 8)];
+  const head = inDuel ? null : run ? run.label : 'LEVEL ' + (levelIdx + 1);
+  const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)];
   panel(LX, 204, PW, 36 + all.length * 24);
   all.forEach((l, i) => text(l, LC, 224 + i * 24, 16, head && i === 0 ? '#f3d18b' : '#ffffff', 'center'));
   const d = diff.lives, hx0 = Math.round(RC - (d * 27 - 6) / 2);
@@ -1214,6 +1234,7 @@ function draw() {
   for (const e of effects) if (e.text) { ctx.globalAlpha = Math.min(1, e.life * 3); text(e.text, e.x * P, (e.y - (1 - e.life) * 14) * P, 16, '#ffd23f', 'center'); ctx.globalAlpha = 1; }
   const blink = Math.floor(clock * 2.5) % 2;
   const playing = ['intro', 'play', 'clear', 'duelWait', 'duelDraw', 'duelWon'].includes(state);
+  if (run && playing && run.ui) run.ui();
 
   if (state === 'title') {
     dim(0.55);
@@ -1234,6 +1255,7 @@ function draw() {
   if (state === 'intro') {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
     if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
+    else if (run) { text(run.title, W / 2, 194, 32, '#ffd23f', 'center'); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
     else { text('LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
   }
   if (state === 'clear' && clearInfo) {
@@ -1247,7 +1269,7 @@ function draw() {
   if (state === 'duelWait') text('STEADY...', W / 2, 110, 24, '#f4efe0', 'center');
   if (state === 'duelDraw') text('DRAW!', W / 2, 96, 64, Math.floor(clock * 10) % 2 ? '#ff3b30' : '#ffd23f', 'center');
   if (state === 'hurt' || state === 'over') {
-    const h = HURT[lastHurt], over = state === 'over';
+    const h = (run && run.hurtText && run.hurtText[lastHurt]) || HURT[lastHurt], over = state === 'over';
     dim(over ? 0.72 : 0.62);
     text(over ? 'GAME OVER' : h.title, W / 2, 36, over ? 40 : 32, h.color, 'center');
     text(h.reason, W / 2, 96, 16, '#ffffff', 'center');
@@ -1290,6 +1312,7 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'over') { if (inBox(mouse.x, mouse.y, TITLE_BTN)) { toTitle(); return; } lives = diff.lives; score = 0; levelStartScore = 0; S0 = newStats(); retry(); return; }
   if (state === 'hurt') { if (timer < 3.7) retry(); return; }
   if (!SHOOTABLE.includes(state)) return;
+  if (run && run.tap && run.tap(mouse.x, mouse.y)) return; // steering arrows
   if (e.button === 2 || inBox(mouse.x, mouse.y, { x: AMMO_BOX.x - 14, y: AMMO_BOX.y - 30, w: AMMO_BOX.w + 26, h: AMMO_BOX.h + 42 })) { reload(); return; }
   if (mouse.x >= 0 && mouse.x <= W) shoot(mouse.x, mouse.y);
 });
@@ -1301,6 +1324,7 @@ window.addEventListener('keydown', e => {
   if ((k === ' ' || k === 'enter') && state === 'scene' && scene.key) { e.preventDefault(); scene.key(k); }
   if (k === 'escape') { if (state === 'cut') nextStep(); else if (state === 'over') toTitle(); }
   if (k === 'r' && SHOOTABLE.includes(state)) reload();
+  if (run && state === 'play' && run.key && run.key(k)) e.preventDefault();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && canPause()) paused = true; });
 
