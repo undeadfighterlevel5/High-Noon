@@ -32,6 +32,7 @@ const g = buf.getContext('2d');
 const FONT = '"Press Start 2P", monospace';
 if (document.fonts && document.fonts.load) document.fonts.load('16px "Press Start 2P"');
 
+let timeScale = 1; // < 1 = slow motion (set by chapter levels, e.g. mid-air on a jump)
 let state = 'title', paused = false, diff = DIFFICULTY.deputy, step = 0, levelIdx = 0, spots = {}, inDuel = false;
 let time = 0, nextEvent = 0, events = [], actives = [], lives = 3, ammo = 6, score = 0, levelStartScore = 0;
 let shots = 0, hits = 0, timer = 0, lastHurt = 'shot', epitaph = [], clock = 0;
@@ -1260,7 +1261,7 @@ function draw() {
   if (state === 'intro') {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
     if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
-    else if (run) { text(run.title, W / 2, 194, 32, '#ffd23f', 'center'); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
+    else if (run) { const tl = wrap(run.title, 18), ts = tl.length > 1 ? 24 : 32; tl.forEach((l, i) => text(l, W / 2, 186 + i * 28 - (tl.length - 1) * 8, ts, '#ffd23f', 'center')); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
     else { const L = LEVELS[levelIdx], lab = 'label' in L; text(lab ? L.name : 'LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(lab ? (L.hint || '') : L.name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
   }
   if (state === 'clear' && clearInfo) {
@@ -1352,4 +1353,4 @@ if (window.ResizeObserver) new ResizeObserver(fit).observe(stage); fit();
 ['touchend', 'click'].forEach(ev => document.addEventListener(ev, audio));
 document.addEventListener('gesturestart', e => e.preventDefault());
 let last = performance.now();
-function loop(now) { music(); if (innerHeight > innerWidth && canPause()) paused = true; const dt = Math.min(0.05, (now - last) / 1000); last = now; update(dt); draw(); requestAnimationFrame(loop); }
+function loop(now) { music(); if (innerHeight > innerWidth && canPause()) paused = true; const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!run || state !== 'play') timeScale = 1; update(dt * timeScale); draw(); requestAnimationFrame(loop); }

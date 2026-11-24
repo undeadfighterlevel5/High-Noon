@@ -293,6 +293,8 @@ CUTS.ch2Saloon = {
     ['eliza', "HIS LAST LETTER CAME FROM CRYSTAL CANYON. THE RAILROAD SAYS THEY DON'T KNOW WHERE HE IS."],
     ['eliza', "GETTIN' THERE MEANS CROSSIN' NATIVE TERRITORY. I NEED A HIRED GUN. I CAN'T PAY MUCH, BUT I MAKE A MEAN PEACH COBBLER."],
     ['gus', "SHE AIN'T LYIN' ABOUT THE COBBLER, SHERIFF."],
+    ['eliza', "AND I BREW THE STRONGEST COFFEE THIS SIDE OF THE MISSISSIPPI."],
+    ['eliza', "I'M GIVIN' MY HORSES A BUCKET EACH. WE'LL BE THERE BY SUNDOWN."],
     ['eliza', 'WE LEAVE IN AN HOUR.'],
   ],
 };
@@ -375,8 +377,8 @@ const RACE = [
   ['rock', 17.0, 0],
   ['curve', 18.0, 4, 0.045], ['rock', 18.8, 1], ['log', 19.8, -1, 0], ['rock', 21.0, -1],
   ['tumble', 21.5, -1],
-  ['R', 22.5, 'L', 0, 'bandit', 1.6],
-  ['log', 23.5, 0, 1],
+  ['jump', 21.8, 1],
+  ['log', 24.3, -1, 0],
   ['curve', 24.5, 3, -0.05], ['rock', 25.2, -1], ['rock', 26.0, 0],
   ['bird', 26.5, -1], ['bird', 27.0, -1],
   ['bridge', 28.5, 3.5], ['hole', 29.0, 1], ['hole', 29.8, 0], ['hole', 30.6, -1], ['hole', 31.3, 1],
@@ -387,8 +389,9 @@ const RACE = [
   ['curve', 38.5, 3, -0.04], ['log', 39.2, 0, 1], ['rock', 40.2, -1],
   ['tumble', 40.5, 1],
   ['boost', 42.0], ['sign', 42.5],
+  ['jump', 43.2, -1],
 ].sort((a, b) => a[1] - b[1]);
-const RACE_END = 46;
+const RACE_END = 48;
 
 // ---------------- road geometry (curves bend the road toward the horizon) ----------------
 const SH_STEP = 0.2, SH = new Float32Array(Math.ceil(FAR / SH_STEP) + 2);
@@ -399,7 +402,7 @@ function curvAt(z) {
 }
 function buildShift() { let x = 0, slope = 0; for (let i = 0; i < SH.length; i++) { SH[i] = x; slope += curvAt(i * SH_STEP) * SH_STEP; x += slope * SH_STEP; } }
 const shiftAt = z => { const f = Math.max(0, Math.min(SH.length - 1.001, z / SH_STEP)), i = f | 0; return SH[i] + (SH[i + 1] - SH[i]) * (f - i); };
-const projY = z => HZ + GND / z;
+const projY = z => (RIDE.hzE == null ? HZ : RIDE.hzE) + GND * (RIDE.camH || 1) / z;
 const projX = (wx, z) => 160 + (wx + shiftAt(z) - RIDE.cam) * FOC / z;
 const onBridge = z => RIDE.bridges.some(b => z >= b.z && z <= b.z + b.len);
 
@@ -619,22 +622,32 @@ function riderFires(r) {
   hurt(r.who === 'native' ? 'arrow' : 'shot', null);
 }
 RUNS.trail = {
-  label: null, name: 'THE TRAIL', title: 'THE TRAIL', hint: 'HOLD THE ARROWS TO STEER!', tune: 'trail',
+  label: null, name: 'HYPED UP HORSES', title: 'SUPA FAST HYPED UP HORSE TRAVEL', hint: 'HOLD THE ARROWS TO STEER! HIT THE RAMPS!', tune: 'trail',
   hurtText: {
     shot: { title: 'BUSHWHACKED!', reason: 'A BANDIT GOT YOU FIRST.', color: '#ff3b30' },
     arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE WAS QUICKER ON THE DRAW.', color: '#ff3b30' },
     crash: { title: 'WAGON WRECK!', reason: 'KEEP AN EYE ON THE TRAIL.', color: '#ffb347' },
+    block: { title: 'BLOCKADE!', reason: 'AIM FOR THE RAMP, PARTNER.', color: '#ffb347' },
   },
   reset() {
     Object.assign(RIDE, { px: 0, vx: 0, hold: { l: false, r: false }, holdId: { l: null, r: null }, edgeT: 0, bumps: 0, lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
-      curves: [], bridges: [], signs: [], dust: [], ei: 0, decoT: 0, poleAcc: 0, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
+      curves: [], bridges: [], signs: [], dust: [], blocks: [], flyers: [], booms: [], tracers: [], air: 0, airT: 0, camH: 1, hzE: HZ, roll: 0, ei: 0, decoT: 0, poleAcc: 0, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
     for (let z = 1.3; z < SPAWN; z += 0.45) spawnDeco(z);
     for (let z = 1.5; z < SPAWN; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
   },
   tick(dt) { // the world rolls by (also during the intro / clear screens)
     if (RIDE.boost) { const vt = 88 / MPH_PER_V + 0.05; RIDE.v = Math.min(Math.max(RIDE.v, vt), RIDE.v + dt * 3); }
     const dz = RIDE.v * dt; RIDE.dist += dz;
-    for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles, RIDE.curves, RIDE.bridges, RIDE.signs]) for (const o of list) o.z -= dz;
+    for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles, RIDE.curves, RIDE.bridges, RIDE.signs, RIDE.blocks]) for (const o of list) o.z -= dz;
+    RIDE.blocks = RIDE.blocks.filter(b => b.z > 0.6);
+    for (const f of RIDE.flyers) { f.vy += 260 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt; }
+    RIDE.flyers = RIDE.flyers.filter(f => f.y < LH + 60); for (const f of RIDE.booms) f.t += dt; RIDE.booms = RIDE.booms.filter(f => f.t < 1.6);
+    // airborne: camera climbs, horizon lifts, the world tilts, time slows
+    if (RIDE.air > 0 && state === 'play') { RIDE.airT += dt; if (RIDE.airT >= JUMP_T) land(); }
+    { const k = jumpK(), h = Math.sin(Math.PI * k); RIDE.camH = 1 + 2.6 * h; RIDE.hzE = HZ - Math.round(16 * h); RIDE.roll = 0.07 * Math.sin(Math.PI * k) * (RIDE.px >= 0 ? -1 : 1); }
+    timeScale = state === 'play' && RIDE.air > 0 ? SLOWMO : 1;
+    for (const tr of RIDE.tracers) { const p2 = tr.aim && tr.aim(); if (p2) { tr.x = p2.x; tr.y = p2.y; } tr.t += dt; if (tr.t >= tr.dur && !tr.done) { tr.done = true; if (!this.hitAt(tr.x, tr.y)) miss(tr.x, tr.y); } }
+    RIDE.tracers = RIDE.tracers.filter(tr => !tr.done);
     for (const t of RIDE.tumbles) t.wx += t.vx * dt;
     RIDE.decoT -= dt; if (RIDE.decoT <= 0) { spawnDeco(SPAWN); RIDE.decoT = (0.15 + Math.random() * 0.2) * 5 / RIDE.v; }
     RIDE.poleAcc += dz; if (RIDE.poleAcc >= 2.2) { RIDE.poleAcc -= 2.2; RIDE.posts.push({ pole: true, wx: 2.9, z: SPAWN }); }
@@ -645,7 +658,7 @@ RUNS.trail = {
     RIDE.birds = RIDE.birds.filter(b => b.x > -20 && b.x < LW + 20 && b.y < LH + 10);
     // steering + the curve flinging the wagon toward the outside of the bend
     const kNear = curvAt(1.5), steerIn = (RIDE.hold.r ? 1 : 0) - (RIDE.hold.l ? 1 : 0);
-    if (state === 'play') RIDE.vx += (steerIn * STEER_ACC - kNear * RIDE.v * RIDE.v * FLING) * dt;
+    if (state === 'play' && !(RIDE.air > 0)) RIDE.vx += (steerIn * STEER_ACC - kNear * RIDE.v * RIDE.v * FLING) * dt;
     RIDE.vx *= Math.max(0, 1 - STEER_DRAG * dt); RIDE.px += RIDE.vx * dt;
     if (Math.abs(RIDE.px) > ROAD_EDGE) { // bouncing along the edge of the road
       RIDE.px = Math.sign(RIDE.px) * ROAD_EDGE; RIDE.vx *= -0.3;
@@ -677,12 +690,13 @@ RUNS.trail = {
       else if (k === 'tumble') RIDE.tumbles.push({ wx: -3.5 * e[2], vx: 2.2 * e[2], z: 9 + Math.random() * 3 });
       else if (k === 'boost') RIDE.boost = true;
       else if (k === 'sign') RIDE.signs.push({ wx: 2.3, z: SPAWN });
+      else if (k === 'jump') spawnJump(e[2]);
     }
     if (RIDE.boost && !RIDE.hit88 && RIDE.v * MPH_PER_V >= 88) { // great Scott!
       RIDE.hit88 = true; popText(160, 70, '88 MPH!'); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone('square', f, f, 0.1, 0.06), i * 70));
     }
     const kNear = curvAt(1.5); // drift bonus: hug the inside of a bend while it's flinging you out
-    if (Math.abs(kNear) > 0.015 && Math.sign(kNear) * RIDE.px > 0.6) {
+    if (!(RIDE.air > 0) && Math.abs(kNear) > 0.015 && Math.sign(kNear) * RIDE.px > 0.6) {
       RIDE.driftT += dt; if (RIDE.driftT >= 0.5) { RIDE.driftT -= 0.5; addScore(50, 'obj'); popText(160, 120, 'DRIFT +50'); }
     } else RIDE.driftT = 0;
     RIDE.pending = RIDE.pending.filter(e => { const r = mkRider(e); if (slotBusy(r)) return true; RIDE.riders.push(r); sfx.cock(); return false; });
@@ -699,13 +713,30 @@ RUNS.trail = {
     RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.6));
     for (const o of RIDE.obs) if (!o.checked && o.z <= 1.35) {
       o.checked = true;
+      if (o.kind === 'ramp') { if (Math.abs(RIDE.px - o.lanes[0]) < 0.55) startJump(); continue; }
+      if (RIDE.air > 0) continue; // sailing right over it
       if (hitsWagon(o)) { o.z = 0; crash(); if (state !== 'play') return; }
+    }
+    for (const b of RIDE.blocks) if (!b.checked && b.z <= 1.35) {
+      b.checked = true;
+      if (RIDE.air > 0) { if (b.members.some(m => m.alive)) popText(160, 96, 'RIGHT OVER THEIR HEADS!'); continue; }
+      shake = 1; sfx.thud(); noise(0.8, 0.7, 500); burst(160, 140, 30, ['#8a5530', '#c8a070', '#5a3418'], 160);
+      for (const m of b.members) if (m.alive) launchMember(b, m, 0.8);
+      RIDE.bumps = 0; hurt('block', null); if (state !== 'play') return;
     }
   },
   done() {
-    return time >= RACE_END && RIDE.ei >= RACE.length && !RIDE.pending.length && !RIDE.riders.length && RIDE.obs.every(o => o.checked) && !RIDE.birds.some(b => b.dead);
+    return time >= RACE_END && RIDE.ei >= RACE.length && !RIDE.pending.length && !RIDE.riders.length && RIDE.obs.every(o => o.checked) && RIDE.blocks.every(b => b.checked) && !(RIDE.air > 0) && !RIDE.tracers.length && !RIDE.birds.some(b => b.dead);
   },
   shoot(x, y) {
+    if (RIDE.air > 0) { RIDE.tracers.push({ x, y, t: 0, dur: 0.14, aim: aimAt(x, y) }); return true; } // the bullet takes its sweet time (and follows its target)
+    return this.hitAt(x, y);
+  },
+  hitAt(x, y) {
+    for (const b of RIDE.blocks) {
+      if (b.barrel && inBox(x, y, barrelRect(b))) { hits++; blowBarrel(b); return true; }
+      for (const m of b.members) if (m.alive && inBox(x, y, memberRect(b, m))) { hits++; S.n.outlaw++; launchMember(b, m, 1); sfx.hit(); addScore(150, 'outlaw'); popText(x, y - 8, '+150'); return true; }
+    }
     for (const b of RIDE.birds) if (!b.dead && inBox(x, y, { x: b.x - 6, y: b.y - 4, w: 13, h: 8 })) {
       b.dead = true; b.vy = -30; burst(b.x, b.y, 8, ['#2a2228', '#4a4048', '#f4efe0'], 40); sfx.hit();
       addScore(200, 'obj'); S.n.obj++; targets++; hits++; popText(b.x, b.y - 6, 'BIRD +200'); return true;
@@ -731,6 +762,7 @@ RUNS.trail = {
   },
   draw() {
     buildShift();
+    R(0, 0, LW, LH >> 1, TRAIL_SKY[0]); R(0, LH >> 1, LW, LH >> 1, GROUND_NEAR[0]);
     raceScenery();
     for (const b of RIDE.bridges) for (const side of [-1.75, 1.75]) {
       let prev = null;
@@ -748,7 +780,8 @@ RUNS.trail = {
       ...RIDE.deco.filter(o => !onBridge(o.z)).map(o => [o.z, () => { const s = FOC / o.z * o.s, x = projX(o.wx, o.z), by = projY(o.z); o.kind === 'cactus' ? cactusAt(x, by, s) : o.kind === 'bush' ? bushAt(x, by, s) : boulder(x, by, 0.3 * s, 0.2 * s); }]),
       ...RIDE.posts.filter(p => !onBridge(p.z)).map(p => [p.z, () => (p.pole ? drawPole(p) : drawPost(p))]),
       ...RIDE.signs.map(p => [p.z, () => drawSign(p)]),
-      ...RIDE.obs.filter(o => o.z > 0.8).map(o => [o.z + (o.kind === 'hole' ? 0.9 : 0), () => (o.kind === 'log' ? logObs(o) : o.kind === 'hole' ? holeObs(o) : boulder(projX(o.lanes[0], o.z), projY(o.z), 0.62 * FOC / o.z, 0.42 * FOC / o.z))]),
+      ...RIDE.blocks.map(b2 => [b2.z, () => drawBlock(b2)]),
+      ...RIDE.obs.filter(o => o.z > 0.8).map(o => [o.z + (o.kind === 'hole' || o.kind === 'ramp' ? 0.9 : 0), () => (o.kind === 'ramp' ? rampObs(o) : o.kind === 'log' ? logObs(o) : o.kind === 'hole' ? holeObs(o) : boulder(projX(o.lanes[0], o.z), projY(o.z), 0.62 * FOC / o.z, 0.42 * FOC / o.z))]),
       ...RIDE.tumbles.map(t => [t.z, () => drawTumbleweed(t)]),
       ...RIDE.riders.map(r => [riderZ(r), () => drawRider(r)]),
     ].filter(([z]) => z < FAR).sort((a, b) => b[0] - a[0]);
@@ -761,7 +794,22 @@ RUNS.trail = {
       ctx.globalAlpha = 0.35 * p * sp; line(x0, y0, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len * 0.6, '#ffffff'); ctx.globalAlpha = 1;
     }
     for (const d of RIDE.dust) { ctx.globalAlpha = 0.6 * (1 - d.t / 0.7); disc(Math.round(d.x), Math.round(d.y), 2 + Math.round(d.t * 8), '#d8b888'); ctx.globalAlpha = 1; }
+    for (const f of RIDE.flyers) { g.save(); g.translate(Math.round(f.x + 10 * f.sc), Math.round(f.y + 16 * f.sc)); g.rotate(f.rot); blit(getSprite({ ...f.spec, pose: 'hit' }), Math.round(-10 * f.sc), Math.round(-16 * f.sc), f.sc); g.restore(); }
+    for (const f of RIDE.booms) { const t = f.t;
+      if (t < 0.5) { const r = Math.round((6 + t * 60) * f.size), a = 1 - t / 0.5; g.globalAlpha = a; disc(Math.round(f.x), Math.round(f.y), r, '#e05020'); disc(Math.round(f.x), Math.round(f.y), Math.round(r * 0.7), '#ff9a3a'); disc(Math.round(f.x), Math.round(f.y), Math.round(r * 0.4), '#fff4c8'); g.globalAlpha = 1; }
+      for (let i = 0; i < 7; i++) { const ang = i * 0.9 + f.size, d = (6 + t * 40) * f.size; g.globalAlpha = Math.max(0, 0.55 * (1 - t / 1.6)); disc(Math.round(f.x + Math.cos(ang) * d), Math.round(f.y + Math.sin(ang) * d * 0.6 - t * 40), Math.round((3 + t * 9) * f.size), '#6a6460'); g.globalAlpha = 1; } }
+    if (RIDE.roll) { // tilt the finished picture (nearest-neighbour, so pixels stay crisp)
+      const tmp = bake('rollTmp', LW, LH, () => {}), tg = tmp.getContext('2d'); tg.clearRect(0, 0, LW, LH); tg.drawImage(buf, 0, 0);
+      R(0, 0, LW, LH >> 1, TRAIL_SKY[0]); R(0, LH >> 1, LW, LH >> 1, GROUND_NEAR[0]);
+      g.save(); g.imageSmoothingEnabled = false; g.translate(160, 100); g.rotate(RIDE.roll); g.translate(-160, -100); g.drawImage(tmp, -2, -2, LW + 4, LH + 4); g.restore();
+    }
     drawTeam();
+    for (const tr of RIDE.tracers) { // slow-motion bullet: a glowing slug with a smoke trail
+      const k = Math.min(1, tr.t / tr.dur), x = 160 + (tr.x - 160) * k, y = 176 + (tr.y - 176) * k;
+      g.globalAlpha = 0.45; line(160 + (tr.x - 160) * Math.max(0, k - 0.35), 176 + (tr.y - 176) * Math.max(0, k - 0.35), x, y, '#d8d0c0'); g.globalAlpha = 1;
+      disc(Math.round(x), Math.round(y), 2, '#ffd23f'); R(Math.round(x), Math.round(y), 1, 1, '#ffffff');
+    }
+    const bar = Math.round(16 * Math.sin(Math.PI * jumpK())); if (bar > 0) { R(0, 0, LW, bar, '#000000'); R(0, LH - bar, LW, bar, '#000000'); }
     RIDE.birds.forEach(drawBird);
   },
   ui() {
@@ -793,10 +841,12 @@ RUNS.trail = {
     return false;
   },
 };
+for (const k in EPITAPHS) EPITAPHS[k].push(['RUSTY!!']);
 Object.assign(EPITAPHS, {
-  arrow: [['HE SAW THE ARROW.', 'THE ARROW SAW', 'HIM FIRST.'], ['HERE LIES A MAN', 'WHO THOUGHT HE WAS', 'OUT OF RANGE.']],
-  crash: [['HE SAID', '"WHAT ROCK?"'], ['HE TOOK THE', 'SCENIC ROUTE.', 'THROUGH A BOULDER.'], ['ELIZA WAS DRIVING.', 'HE WAS SUPPOSED', 'TO BE WATCHING.'], ['SPEED LIMIT', 'WAS A SUGGESTION.']],
-  tnt: [['HE SHOULD HAVE', 'SHOT THE STICK.'], ['HE WENT OUT', 'WITH A BANG.'], ['AUNT MAE WANTS', 'HER ROOF BACK.']],
+  block: [['RUSTY!!'], ['HE MISSED', 'THE RAMP.'], ['THEY SAW HIM', 'COMING. FOR', 'A MILE.']],
+  arrow: [['RUSTY!!'], ['HE SAW THE ARROW.', 'THE ARROW SAW', 'HIM FIRST.'], ['HERE LIES A MAN', 'WHO THOUGHT HE WAS', 'OUT OF RANGE.']],
+  crash: [['RUSTY!!'], ['HE SAID', '"WHAT ROCK?"'], ['HE TOOK THE', 'SCENIC ROUTE.', 'THROUGH A BOULDER.'], ['ELIZA WAS DRIVING.', 'HE WAS SUPPOSED', 'TO BE WATCHING.'], ['SPEED LIMIT', 'WAS A SUGGESTION.']],
+  tnt: [['RUSTY!!'], ['HE SHOULD HAVE', 'SHOT THE STICK.'], ['HE WENT OUT', 'WITH A BANG.'], ['AUNT MAE WANTS', 'HER ROOF BACK.']],
 });
 Object.assign(HURT, {
   arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE LET FLY BEFORE YOU FIRED.', color: '#ff3b30' },
@@ -848,7 +898,7 @@ CUTS.ch2Cabin = {
 };
 
 // ---- night falls over the cabin, then fade to black
-const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. YOU CLIMB UP ON THE ROOF AND SETTLE IN TO KEEP WATCH.';
+const NIGHT_TEXT = 'ELIZA BRINGS UP A CUP OF THE STRONGEST COFFEE THIS SIDE OF THE MISSISSIPPI. YOU CLIMB UP ON THE ROOF AND SETTLE IN TO KEEP WATCH.';
 SCENES.ch2Night = {
   tune: null,
   enter() { this.textT = 0; this.doneT = 0; this.cricket = 0.5; this.out = false; this.outT = 0; },
@@ -1013,7 +1063,8 @@ SETS.lakeRide = { bg: () => lakeRideArt(true), fg: () => {} };
 CUTS.ch2Lake = {
   set: 'lakeRide', actors: [], tune: 'morning',
   lines: [
-    ['narr', 'WITH THE YARD QUIET AGAIN, YOU HITCH UP THE TEAM AND RIDE ON ALONG THE LAKE.'],
+    ['narr', "YOU LEAVE AUNT MAE'S YARD, NOW FULL OF POTHOLES AND BODIES. (SERIOUSLY. SO MANY.)"],
+    ['narr', 'YOU HITCH UP THE TEAM AND RIDE ON ALONG THE LAKE.'],
     ['eliza', "YOU LOOK LIKE SOMETHIN' THE CAT DRAGGED IN, SHERIFF. GIVE ME THE REINS. I'LL DRIVE."],
     ['eliza', "CLIMB IN THE BACK AND GET SOME SLEEP. CRYSTAL CANYON AIN'T GOIN' ANYWHERE."],
   ],
@@ -1090,7 +1141,7 @@ function bake(key, w, h, fn) {
 const hexRGB = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
 const MIXC = new Map();
 function mix(a, b, t) { t = Math.round(Math.max(0, Math.min(1, t)) * 32) / 32; const key = a + b + t; let v = MIXC.get(key); if (v) return v; v = mix0(a, b, t); MIXC.set(key, v); return v; }
-function mix0(a, b, t) { const A = hexRGB(a), B = hexRGB(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * Math.max(0, Math.min(1, t))).toString(16).padStart(2, '0')).join(''); }
+function mix0(a, b, t) { const A = hexRGB(a), B = hexRGB(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const dith = (x, y) => (BAYER4[((y & 3) << 2) | (x & 3)] + 0.5) / 16;
 const hash = n => { n = Math.imul(n ^ 61, 2654435761) ^ (n >>> 13); return ((n >>> 0) % 10007) / 10007; };
@@ -1159,7 +1210,7 @@ function cloudCanvas(key, puffs, L, M, D) {
       if (y > bottom) continue;
       let best = null; for (const p of puffs) { const d = Math.hypot(x - p[0], y - p[1]) / p[2]; if (d <= 1 && (!best || d < best.d)) best = { d, p }; }
       if (!best) continue;
-      const edge = best.d > 0.86 && dith(x, y) > 0.5; if (edge) continue;
+      if (best.d > 0.86 && dith(x, y) > 0.5) continue;
       const rel = (y - best.p[1]) / best.p[2];
       px(x, y, 1, 1, y >= bottom - 1 ? D : rel < -0.25 && (x - best.p[0]) < best.p[2] * 0.4 ? L : rel > 0.35 ? D : M);
     }
@@ -1177,7 +1228,7 @@ function pineT(x, by, h, C) {
   }
   R(x, by - h - 1, 1, 2, C.mid);
 }
-const forestStrip = (key, w, h, C, density = 7, minH = 0.5) => bake('forest:' + key, w, h, (px, x2) => {
+const forestStrip = (key, w, h, C, density = 7, minH = 0.5) => bake('forest:' + key, w, h, px => {
   const draw = (x, by, hh) => {
     const tiers = Math.max(3, Math.round(hh / 6));
     for (let t = 0; t < tiers; t++) {
@@ -1205,7 +1256,8 @@ function farBirds(x0, y0, n, c, spd = 9) {
 }
 
 // =====================================================================
-//  THE TRAIL — painted desert
+//  THE TRAIL — painted desert. The horizon (RIDE.hzE) and the camera
+//  height (RIDE.camH) move when the wagon goes airborne off a ramp.
 // =====================================================================
 const TRAIL_SKY = ['#3f7cc4', '#5a94d2', '#82b2e2', '#aecfee', '#d8e6ee', '#f2e4c0'];
 const trailFar = () => ridgeStrip('trailFar', 640, 34, x => 14 + wave(640, [[6, 3, 0.4], [4, 7, 1.3], [2, 13, 2.2]])(x), { lit: '#b6a0c2', dark: '#9c86ae', rim: '#d2c2d8', foot: '#c4b4cc' });
@@ -1217,37 +1269,37 @@ const TRAIL_CLOUDS = () => [cloudCanvas('t1', [[8, 8, 6], [16, 6, 8], [26, 8, 6]
   cloudCanvas('t3', [[6, 7, 5], [14, 5, 7], [24, 6, 6], [32, 8, 4], [40, 9, 3]], '#ffffff', '#eef4fa', '#c8d8e8')];
 const GROUND_NEAR = ['#c4914f', '#bc8a4a'], GROUND_FAR = '#e6cc98', ROAD_NEAR = ['#a87a48', '#a27444'], ROAD_FAR = '#d8b47e';
 function raceScenery() {
-  g.drawImage(skyCanvas('trail', HZ, TRAIL_SKY), 0, 0);
-  sunHalo(262, 18, 8, '#fffbe8', '#fff2c0');
+  const hz = RIDE.hzE == null ? HZ : RIDE.hzE, dy = hz - HZ, camH = RIDE.camH || 1;
+  R(0, 0, LW, LH, TRAIL_SKY[0]);
+  g.drawImage(skyCanvas('trail', HZ, TRAIL_SKY), 0, dy);
+  sunHalo(262, 18 + dy, 8, '#fffbe8', '#fff2c0');
   const cl = TRAIL_CLOUDS();
-  [[30, 10, 0], [150, 20, 1], [250, 6, 2], [360, 16, 0]].forEach(([x, y, k], i) => g.drawImage(cl[k], Math.round((((x - clock * (3 + i) + RIDE.sky * 0.25) % 420) + 420) % 420 - 50), y));
-  farBirds(40, 30, 3, '#4a4a5a', 6);
+  [[30, 10, 0], [150, 20, 1], [250, 6, 2], [360, 16, 0]].forEach(([x, y, k], i) => g.drawImage(cl[k], Math.round((((x - clock * (3 + i) + RIDE.sky * 0.25) % 420) + 420) % 420 - 50), y + dy));
+  farBirds(40, 30 + dy, 3, '#4a4a5a', 6);
   const p1 = -RIDE.cam * 5 + RIDE.sky * 0.5, p2 = -RIDE.cam * 10 + RIDE.sky, p3 = -RIDE.cam * 16 + RIDE.sky * 1.6;
-  strip(trailFar(), -p1, HZ - 34);
-  strip(trailMesa(), -p2, HZ - 38);
-  strip(trailHills(), -p3, HZ - 12);
-  let brPrev = onBridge(GND / 0.5);
-  for (let y = HZ; y < LH; y++) {
-    const z = GND / Math.max(0.5, y - HZ + 0.5), wz = z + RIDE.dist, band = Math.floor(wz * 0.8) % 2, br = onBridge(z), fog = Math.max(0, 1 - (y - HZ) / 26);
+  strip(trailFar(), -p1, hz - 34);
+  strip(trailMesa(), -p2, hz - 38);
+  strip(trailHills(), -p3, hz - 12);
+  let brPrev = onBridge(GND * camH / 0.5);
+  for (let y = Math.max(0, hz); y < LH; y++) {
+    const z = GND * camH / Math.max(0.5, y - hz + 0.5), wz = z + RIDE.dist, band = Math.floor(wz * 0.8) % 2, br = onBridge(z), fog = Math.max(0, 1 - (y - hz) / 26);
     const l = Math.round(projX(-1.6, z)), r = Math.round(projX(1.6, z)), s = FOC / z, row = Math.floor(wz * 5);
     if (br) {
       R(0, y, LW, 1, mix(Math.floor(wz * 1.5) % 2 ? '#3e6ea6' : '#4a7ab4', '#a8c8e8', fog * 0.9));
-      const sx = 262 - RIDE.cam * 5, spread = 2 + (y - HZ) * 0.5;               // sun glitter on the water
+      const sx = 262 - RIDE.cam * 5, spread = 2 + (y - hz) * 0.5;                // sun glitter on the water
       for (let i = 0; i < 3; i++) { const gx = Math.round(sx + (hash(row * 3 + i + Math.floor(clock * 6)) - 0.5) * spread * 2); R(gx, y, 2 + (i & 1), 1, '#fff4d0'); }
       for (let i = 0; i < 4; i++) { const gx = ((i * 83 + y * 17 + Math.floor(clock * 40)) % 340) - 10; if ((y + i) % 5 === 0) R(gx, y, 6, 1, '#a8d0f0'); }
       R(l - 3, y, r - l + 6, 1, '#3b2210');
       R(l, y, r - l, 1, Math.floor(wz * 3) % 2 ? '#8a6038' : '#7a5230');
-      if (Math.floor(wz * 3 + 0.15) % 1 === 0 && s > 14) R(l, y, r - l, 1, '#5a3a20');
       R(l, y, Math.max(1, Math.round(s * 0.05)), 1, '#5a3a20'); R(r - Math.max(1, Math.round(s * 0.05)), y, Math.max(1, Math.round(s * 0.05)), 1, '#5a3a20');
     } else {
       R(0, y, LW, 1, mix(GROUND_NEAR[band], GROUND_FAR, fog));
       R(l, y, r - l, 1, mix(ROAD_NEAR[band], ROAD_FAR, fog));
-      // wheel ruts, the hump between them, and the road's worn edges
-      const rw = Math.max(1, Math.round(s * 0.09));
+      const rw = Math.max(1, Math.round(s * 0.09));                               // wheel ruts + the hump between them
       for (const wx of [-0.55, 0.55]) R(Math.round(projX(wx, z)) - (rw >> 1), y, rw, 1, mix('#8e6238', ROAD_FAR, fog));
       if (s > 12) R(Math.round(projX(0, z)) - Math.round(s * 0.12), y, Math.round(s * 0.24), 1, mix('#b48650', ROAD_FAR, fog));
       R(l - 1, y, 1, 1, '#8a6238'); R(r, y, 1, 1, '#8a6238');
-      if (y > HZ + 5) { // pebbles, sage tufts and dry grass that rush toward you
+      if (y > hz + 5) { // pebbles, sage tufts and dry grass that rush toward you
         for (let i = 0; i < 3; i++) { const h = hash(row * 7 + i); if (h < 0.55) continue; const wx = (hash(row * 13 + i) - 0.5) * 9, x = Math.round(projX(wx, z));
           if (Math.abs(wx) < 1.6) R(x, y, Math.max(1, Math.round(s * 0.04)), 1, h > 0.8 ? '#d8aa6a' : '#8e6238');
           else { const tw = Math.max(1, Math.round(s * 0.12)); R(x - tw, y, tw * 2, 1, h > 0.75 ? '#8a9a4a' : '#9a8a4a'); if (s > 20) R(x - (tw >> 1), y - 1, tw, 1, '#a8b85a'); } }
@@ -1257,8 +1309,7 @@ function raceScenery() {
     if (brPrev !== br && br) { R(0, y, LW, 1, '#5a6a30'); R(0, y + 1, LW, 1, '#7a8a44'); }
     brPrev = br;
   }
-  // a thin heat-haze line at the horizon
-  g.drawImage(bake('haze', LW, 1, px => { for (let x = 0; x < LW; x++) if (dith(x, 1) > 0.5) px(x, 0, 1, 1, '#f0dcb0'); }), 0, HZ);
+  if (hz >= 0) g.drawImage(bake('haze', LW, 1, px => { for (let x = 0; x < LW; x++) if (dith(x, 1) > 0.5) px(x, 0, 1, 1, '#f0dcb0'); }), 0, hz);
 }
 
 // =====================================================================
@@ -1288,32 +1339,28 @@ function cabinArt(night = 0) {
   for (let y = HZL + 1; y < 118; y++) { const w = 3 + Math.round((y - HZL) * 0.7), jx = Math.round(Math.sin(clock * 2 + y * 1.3) * 2);
     if ((y + Math.floor(clock * 4)) % 2) R(150 - (w >> 1) + jx, y, w, 1, (y >> 1) % 2 ? '#ffe0a0' : '#f8a060'); }
   // shore, reeds, dock, meadow
-  R(0, 116, LW, 3, '#4a4426'); R(0, 118, LW, 62, '#5e5c30');
-  bake('cabinMeadow', LW, 62, px => gradPx(px, 0, 0, LW, 62, ['#5e5c30', '#6a6834', '#767238', '#6e6a36']));
-  g.drawImage(BAKED.cabinMeadow, 0, 118);
+  R(0, 116, LW, 3, '#4a4426');
+  g.drawImage(bake('cabinMeadow', LW, 62, px => gradPx(px, 0, 0, LW, 62, ['#5e5c30', '#6a6834', '#767238', '#6e6a36'])), 0, 118);
   for (let i = 0; i < 70; i++) { const gx = Math.round(hash(i) * LW), gy = 120 + Math.round(hash(i + 99) * 56); R(gx, gy, 1, 2, '#848040'); if (i % 5 === 0) R(gx + 1, gy, 1, 1, ['#e8b050', '#d0607a', '#f4efe0'][i % 3]); }
   for (let i = 0; i < 16; i++) { const rx = 64 + i * 7 + (i % 3), rh = 6 + (i * 5) % 6, sw = Math.round(Math.sin(clock * 1.6 + i) * 1);
     R(rx + sw, 117 - rh, 1, rh, '#3e4a24'); if (i % 2) R(rx + sw, 116 - rh, 1, 3, '#6a3a1a'); }
   R(18, 108, 44, 4, '#6e4224'); R(18, 108, 44, 1, '#c8805a'); for (let x = 20; x < 62; x += 6) R(x, 108, 1, 4, '#4a2a14'); R(22, 112, 2, 6, '#3b2210'); R(56, 112, 2, 6, '#3b2210');
-  R(20, 112, 40, 2, 'rgba(30,20,40,0.35)'); // dock reflection
-  // dirt path to the door
+  R(20, 112, 40, 2, 'rgba(30,20,40,0.35)');
   for (let y = 150; y < 180; y++) R(0, y, LW, 1, y % 4 ? '#8a6a40' : '#7a5a34');
   for (let i = 0; i < 14; i++) R(Math.round(hash(i * 5) * LW), 152 + Math.round(hash(i * 9) * 26), 2, 1, '#a88456');
   // the cabin
   const cx = CABIN_X, cb = CABIN_B;
   R(cx - 2, cb - 3, 104, 4, '#6a6660'); for (let i = 0; i < 13; i++) R(cx - 2 + i * 8 + (i % 2) * 2, cb - 3, 5, 2, '#8a847c');
   for (let y = cb - 40; y < cb - 3; y += 5) { R(cx, y, 100, 5, '#7a4a24'); R(cx, y, 100, 1, '#9a6236'); R(cx, y + 4, 100, 1, '#5a3418'); R(cx - 2, y + 1, 3, 3, '#c8a070'); R(cx + 99, y + 1, 3, 3, '#c8a070'); R(cx - 1, y + 2, 1, 1, '#8a6a40'); }
-  R(cx, cb - 40, 2, 37, '#d0784a'); // sunset rim light on the corner logs
+  R(cx, cb - 40, 2, 37, '#d0784a');
   for (let j = 0; j < 22; j++) { R(cx - 8 + j * 2, cb - 41 - j, 116 - j * 4, 1, j % 3 ? '#4a2a1a' : '#3a2014'); if (j % 3 === 1) for (let x = cx - 6 + j * 2 + (j % 2) * 3; x < cx + 106 - j * 2; x += 6) R(x, cb - 41 - j, 1, 1, '#2a160c'); }
   for (let j = 0; j < 22; j++) R(cx - 8 + j * 2, cb - 41 - j, 2, 1, '#c8704a');
   R(cx + 74, cb - 64, 10, 26, '#7a7470'); for (let y = cb - 62; y < cb - 40; y += 4) { R(cx + 74, y, 10, 1, '#5a5450'); R(cx + 75 + (y % 8 ? 0 : 4), y + 1, 4, 2, '#8e8882'); } R(cx + 73, cb - 65, 12, 2, '#8a8480');
   for (let i = 0; i < 6; i++) { const p = (clock * 0.25 + i / 6) % 1; disc(cx + 79 + Math.round(Math.sin(p * 6 + i) * 3 + p * 12), cb - 68 - Math.round(p * 44), 2 + Math.round(p * 3), `rgba(${night ? '170,170,190' : '230,200,210'},${0.5 * (1 - p)})`); }
   R(cx + 44, cb - 30, 14, 27, '#4a2a14'); R(cx + 46, cb - 28, 10, 25, '#5a3418'); R(cx + 46, cb - 20, 10, 1, '#4a2a14'); R(cx + 54, cb - 15, 2, 2, '#c9a040');
   R(cx - 6, cb - 2, 112, 3, '#5a3418'); for (const px2 of [cx - 4, cx + 36, cx + 70, cx + 102]) R(px2, cb - 34, 2, 32, '#4a2a14'); R(cx - 6, cb - 36, 112, 2, '#4a2a14');
-  // rocking chair on the porch + a lantern on a hook
   R(cx + 26, cb - 14, 1, 12, '#3b2210'); R(cx + 26, cb - 9, 8, 1, '#3b2210'); R(cx + 33, cb - 9, 1, 7, '#3b2210'); line(cx + 24, cb - 2, cx + 35, cb - 1, '#3b2210');
   R(cx + 38, cb - 33, 1, 3, '#2a1a10'); R(cx + 37, cb - 30, 3, 4, '#c9a040'); R(cx + 38, cb - 29, 1, 2, '#ffd46a');
-  // flower box under the window
   R(cx + 15, cb - 15, 18, 3, '#5a3418'); for (let i = 0; i < 6; i++) R(cx + 16 + i * 3, cb - 17, 2, 2, ['#d0607a', '#e8b050', '#f4efe0'][i % 3]);
   R(cx + 66, cb - 10, 10, 8, '#7a4a24'); for (let i = 0; i < 3; i++) { disc(cx + 70 + i * 4, cb - 12 - (i % 2) * 3, 2, '#9a6236'); R(cx + 70 + i * 4, cb - 12 - (i % 2) * 3, 1, 1, '#c8a070'); }
   cabinPine(306, 152, 74, night > 0.5); cabinPine(318, 156, 58, night > 0.5); cabinPine(178, 152, 30, night > 0.5);
@@ -1322,9 +1369,8 @@ function cabinArt(night = 0) {
     g.globalAlpha = night;
     for (let i = 0; i < 70; i++) { const sx = Math.round(hash(i * 3) * LW), sy = 36 + Math.round(hash(i * 5 + 1) * 40); if ((Math.floor(clock * 2 + i) % 7)) R(sx, sy, 1, 1, i % 9 ? '#d8d8e8' : '#ffffff'); }
     sunHalo(96, 50, 6, '#f4efd0', '#8a8aa8'); disc(99, 48, 5, '#141634');
-    for (let y = 89; y < 116; y += 2) { const w = 2 + Math.round((y - 88) * 0.3), jx = Math.round(Math.sin(clock * 2 + y) * 2); R(94 - (w >> 1) + jx, y, w, 1, '#b8b8a0'); } // moon on the water
+    for (let y = 89; y < 116; y += 2) { const w = 2 + Math.round((y - 88) * 0.3), jx = Math.round(Math.sin(clock * 2 + y) * 2); R(94 - (w >> 1) + jx, y, w, 1, '#b8b8a0'); }
     g.globalAlpha = 1;
-    // warm light from the window falling on the ground
     g.globalAlpha = 0.25 * night; for (let j = 0; j < 30; j++) R(cx + 14 - j * 0.4, cb + j * 0.6, 24 + j * 0.8, 1, '#ffc060'); g.globalAlpha = 1;
   }
   R(cx + 16, cb - 30, 16, 14, '#3b2210'); R(cx + 18, cb - 28, 12, 10, Math.floor(clock * 3) % 7 ? '#ffd46a' : '#ffc040'); R(cx + 23, cb - 28, 1, 10, '#3b2210'); R(cx + 18, cb - 24, 12, 1, '#3b2210');
@@ -1341,7 +1387,7 @@ const yardBackTrees = () => forestStrip('yardBack', 320, 16, { dark: '#4a6a5e', 
 const yardTrees = () => forestStrip('yardFront', 320, 22, { dark: '#24432e', mid: '#335a3c' }, 8, 0.55);
 function siegeBg() {
   g.drawImage(skyCanvas('dawn', 36, DAWN_SKY), 0, 0);
-  for (let k = 0; k < 5; k++) { g.globalAlpha = 0.08; const a = -0.35 + k * 0.18; for (let d = 12; d < 120; d++) R(Math.round(42 + Math.cos(a) * d), Math.round(30 + Math.sin(a) * d * 0.5), 2, 1, '#fff4d0'); } // sun rays
+  for (let k = 0; k < 5; k++) { g.globalAlpha = 0.08; const a = -0.35 + k * 0.18; for (let d = 12; d < 120; d++) R(Math.round(42 + Math.cos(a) * d), Math.round(30 + Math.sin(a) * d * 0.5), 2, 1, '#fff4d0'); }
   g.globalAlpha = 1;
   sunHalo(42, 30, 7, '#fff8dc', '#fff0c0');
   const cl = TRAIL_CLOUDS(); g.globalAlpha = 0.9; g.drawImage(cl[1], Math.round(((140 + clock * 2) % 380) - 40), 6); g.drawImage(cl[0], Math.round(((250 + clock * 1.5) % 380) - 40), 14); g.globalAlpha = 1;
@@ -1352,10 +1398,8 @@ function siegeBg() {
   for (let y = 35; y < 42; y += 2) R(0, y, LW, 1, 'rgba(255,255,255,0.12)');
   for (let i = 0; i < 6; i++) R(Math.round(((i * 61 + clock * 6) % 340) - 10), 36 + (i % 3) * 2, 5, 1, '#c8e0f4');
   strip(yardBackTrees(), 30, 50 - 16);
-  // morning mist drifting over the treeline
   g.globalAlpha = 0.55; strip(bake('yardMist', LW, 10, px => { for (let y = 0; y < 10; y++) for (let x = 0; x < LW; x++) if (dith(x, y + 40) < 0.35 - Math.abs(y - 5) * 0.06) px(x, y, 1, 1, '#eef0ee'); }), -clock * 3, 40); g.globalAlpha = 1;
   strip(yardTrees(), 0, 52 - 22);
-  // meadow with depth
   g.drawImage(bake('yardMeadow', LW, 98, px => {
     gradPx(px, 0, 0, LW, 98, ['#a2ae5a', '#94a44e', '#869a46', '#7a8e40']);
     for (let i = 0; i < 260; i++) { const x = Math.round(hash(i) * LW), y = Math.round(hash(i + 500) * 96), c = ['#6e8436', '#aab866', '#7a8e3c'][i % 3]; px(x, y, 1, y > 40 ? 2 : 1, c); }
@@ -1363,8 +1407,7 @@ function siegeBg() {
   }), 0, 50);
   for (let y = 64; y < 150; y++) { const w = 18 + Math.round((y - 64) * 0.9), cx = 160; R(cx - w / 2, y, w, 1, (y >> 1) % 3 ? '#b08a58' : '#a88050'); R(cx - w / 2, y, 1, 1, '#8a9a4a'); R(cx + w / 2 - 1, y, 1, 1, '#8a9a4a'); }
   for (let i = 0; i < 18; i++) { const y = 68 + Math.round(hash(i * 7) * 78), w = 18 + (y - 64) * 0.9; R(Math.round(160 - w / 2 + hash(i * 3) * w), y, 2 + (y > 120 ? 1 : 0), 1, '#c8a878'); }
-  for (let i = 0; i < 8; i++) if (Math.floor(clock * 1.5 + i * 1.3) % 4 === 0) R(Math.round(hash(i + 70) * LW), 60 + Math.round(hash(i + 80) * 80), 1, 1, '#ffffff'); // dew glints
-  // split-rail fence with bottles + the stump
+  for (let i = 0; i < 8; i++) if (Math.floor(clock * 1.5 + i * 1.3) % 4 === 0) R(Math.round(hash(i + 70) * LW), 60 + Math.round(hash(i + 80) * 80), 1, 1, '#ffffff');
   R(112, 52, 60, 2, '#7a5a34'); R(112, 52, 60, 1, '#9a7a4a'); R(112, 58, 60, 2, '#7a5a34'); R(112, 58, 60, 1, '#9a7a4a'); for (const fx of [112, 132, 152, 170]) { R(fx, 50, 2, 12, '#5a3a20'); R(fx, 50, 1, 12, '#7a5a34'); }
   R(180, 106, 14, 2, 'rgba(40,50,20,0.3)');
   R(178, 100, 12, 6, '#7a4a24'); R(178, 100, 12, 2, '#c8a070'); R(180, 101, 8, 1, '#a88050'); R(186, 92, 1, 9, '#7a5a34'); R(184, 92, 4, 3, '#a8a8b0'); R(184, 92, 4, 1, '#d8d8e0');
@@ -1376,31 +1419,26 @@ function bushLush(cx, by, w, h) {
   for (let j = 0; j < h; j++) { const t = (j - h) / h, hw = Math.round((w / 2) * Math.sqrt(Math.max(0, 1 - t * t * 0.8))); R(cx - hw, by - h + j, hw * 2, 1, j < 3 ? '#86a854' : j < h - 4 ? '#5e8a3c' : '#4a7030');
     if (j > 2 && j < h - 2) R(cx + Math.round(hw * 0.35), by - h + j, Math.round(hw * 0.65), 1, '#4a7030'); }
   for (let i = 0; i < w; i += 3) { R(cx - w / 2 + i, by - h + 1 + ((i * 7) % 4), 2, 1, '#a6c66a'); R(cx - w / 2 + i + 1, by - h + 6 + ((i * 5) % 6), 1, 1, '#3a5a26'); }
-  for (let i = 0; i < 4; i++) R(cx - w / 3 + i * (w / 5), by - h + 5 + (i % 2) * 4, 1, 1, '#c03040'); // berries
+  for (let i = 0; i < 4; i++) R(cx - w / 3 + i * (w / 5), by - h + 5 + (i % 2) * 4, 1, 1, '#c03040');
   R(cx - w / 2 + 2, by - 1, w - 4, 1, '#2e4a20');
 }
 function siegeFg() {
   bushLush(47, 88, 32, 16);
-  shadowBlob(115, 86, 38); boulder(109, 86, 36, 18); R(98, 72, 10, 2, '#6a8a3a'); R(100, 71, 5, 1, '#8aaa4a'); // moss on the boulder
-  // the parked wagon
+  shadowBlob(115, 86, 38); boulder(109, 86, 36, 18); R(98, 72, 10, 2, '#6a8a3a'); R(100, 71, 5, 1, '#8aaa4a');
   shadowBlob(176, 86, 46);
   R(150, 64, 40, 14, '#7a4a24'); R(150, 64, 40, 1, '#9a6236'); R(150, 70, 40, 1, '#5a3418'); for (let x = 154; x < 190; x += 8) R(x, 65, 1, 13, '#6a3e1e');
   spokeWheel(156, 80, 6, 0.3); spokeWheel(184, 80, 6, 1.1);
   for (let j = 0; j < 14; j++) { const x0 = 152 + (j < 3 ? 3 - j : 0), w = 36 - (j < 3 ? (3 - j) * 2 : 0); R(x0, 50 + j, w, 1, j < 2 ? '#fbf6e8' : '#ece4cc'); R(x0 + w - 5, 50 + j, 5, 1, '#d4cab0'); }
   for (const hx of [161, 170, 179]) R(hx, 51, 1, 13, '#d4cab0');
-  // woodpile, log ends with rings
   shadowBlob(230, 86, 40);
   for (let r = 0; r < 4; r++) for (let i = 0; i < 6 - r; i++) { const lx = 208 + r * 3 + i * 6, ly = 84 - r * 5; disc(lx + 3, ly, 3, '#8a5530'); disc(lx + 3, ly, 2, '#c8a070'); R(lx + 3, ly, 1, 1, '#9a7448'); }
   bushLush(275, 88, 32, 16);
   bushLush(75, 128, 38, 18);
-  // rain barrel with staves and hoops
   shadowBlob(244, 128, 30);
   R(228, 112, 26, 16, '#6e4224'); for (let x = 230; x < 254; x += 4) R(x, 112, 1, 16, '#5a3418'); R(228, 112, 26, 2, '#9a6236'); R(228, 118, 26, 1, '#3b2210'); R(228, 124, 26, 1, '#3b2210'); R(230, 113, 22, 1, '#6a8ab0'); R(232, 113, 6, 1, '#c8e0f4'); R(229, 112, 2, 16, '#8a5530');
-  // the well
   shadowBlob(154, 130, 36);
   R(134, 116, 32, 14, '#8a8478'); for (let i = 0; i < 4; i++) for (let row = 0; row < 3; row++) R(134 + i * 8 + ((row % 2) * 4), 118 + row * 4, 6, 3, row % 2 ? '#9a948a' : '#a8a298'); R(134, 116, 32, 2, '#b8b2a8'); R(140, 125, 3, 1, '#6a8a3a');
   R(136, 92, 2, 24, '#5a3a20'); R(162, 92, 2, 24, '#5a3a20'); for (let j = 0; j < 6; j++) R(132 + j, 90 - j, 36 - j * 2, 1, j % 2 ? '#6e4224' : '#7a4a28'); R(149, 96, 1, 12, '#c8b890'); R(146, 106, 7, 5, '#7a5a34'); R(146, 106, 7, 1, '#9a7a4a');
-  // the cabin roof you're standing on: rows of weathered shingles with a little moss
   for (let y = 148; y < LH; y++) {
     const row = (y - 148) >> 2, k = (y - 148) % 4;
     R(0, y, LW, 1, k === 0 ? '#2a160c' : k === 1 ? '#5a3422' : '#4a2a1a');
@@ -1420,44 +1458,126 @@ function siegeFg() {
 const LAKE_SKY = ['#4a8ad0', '#6aa2dc', '#90bce8', '#b8d4ee', '#dceaf2'];
 const lakeMtn = () => ridgeStrip('lakeMtn', 640, 32, x => 14 + wave(640, [[8, 3, 0.2], [5, 7, 1.7], [2, 17, 0.9]])(x), { lit: '#a4acc8', dark: '#8a92b4', rim: '#e4e8f4', foot: '#b0b8d0', snow: '#f4f6fa', snowD: '#d4dae8' });
 const lakeForest = () => forestStrip('lakeForest', 480, 16, { dark: '#2e5238', mid: '#3e6a46' }, 5, 0.4);
-const LAKE_CLOUDS = TRAIL_CLOUDS;
 function lakeRideArt(you = true) {
   const s = clock * 40;
   g.drawImage(skyCanvas('lake', 46, LAKE_SKY), 0, 0);
   sunHalo(250, 16, 7, '#fffbe8', '#fff2c0');
-  const cl = LAKE_CLOUDS(); [[10, 6, 0], [140, 14, 2], [260, 4, 1]].forEach(([x, y, k], i) => g.drawImage(cl[k], Math.round((((x - clock * (4 + i)) % 420) + 420) % 420 - 50), y));
+  const cl = TRAIL_CLOUDS(); [[10, 6, 0], [140, 14, 2], [260, 4, 1]].forEach(([x, y, k], i) => g.drawImage(cl[k], Math.round((((x - clock * (4 + i)) % 420) + 420) % 420 - 50), y));
   farBirds(100, 22, 4, '#4a4a5a', 10);
   strip(lakeMtn(), s * 0.08, 44 - 32);
   strip(lakeForest(), s * 0.22, 46 - 16);
-  // the lake, mirroring the mountains and the far forest
-  bake('lakeWater', LW, 26, px => gradPx(px, 0, 0, LW, 26, ['#6a9ad0', '#5a8ac0', '#4a7ab2', '#426ea6']));
-  g.drawImage(BAKED.lakeWater, 0, 46);
+  g.drawImage(bake('lakeWater', LW, 26, px => gradPx(px, 0, 0, LW, 26, ['#6a9ad0', '#5a8ac0', '#4a7ab2', '#426ea6'])), 0, 46);
   reflect(lakeForest(), s * 0.22, 46, 10, 1, '#2e5238', 0.7);
   reflect(lakeMtn(), s * 0.08, 56, 8, 2, null, 0.25);
   for (let y = 48; y < 72; y += 3) for (let x = ((y * 13 - s * 0.5) % 24 + 24) % 24 - 24; x < LW; x += 24) R(Math.round(x), y, 8, 1, '#8ab4e0');
   for (let y = 47; y < 72; y++) if ((y + Math.floor(clock * 5)) % 2) { const w = 2 + Math.round((y - 46) * 0.4); R(250 - (w >> 1) + Math.round(Math.sin(clock * 3 + y) * 2), y, w, 1, '#fff6d0'); }
-  // a family of ducks paddling along
   for (let i = 0; i < 3; i++) { const dx = Math.round((((60 - s * 0.35 + i * 9) % 400) + 400) % 400 - 40), dy = 62 + (i ? 1 : 0), bob = Math.floor(clock * 3 + i) % 2;
     R(dx, dy - bob, i ? 4 : 6, 2, '#6a5a3a'); R(dx + (i ? 3 : 5), dy - 2 - bob, 2, 2, i ? '#8a7a4a' : '#2e6a3a'); R(dx + (i ? 5 : 7), dy - 1 - bob, 1, 1, '#e2a030'); R(dx - 1, dy + 2, (i ? 6 : 8), 1, '#a8d0f0'); }
-  // near shore: reeds and cattails swaying
   R(0, 72, LW, 4, '#6a8a44'); R(0, 72, LW, 1, '#4a6a34');
   for (let i = 0; i < 44; i++) { const rx = Math.round(((i * 37 - s * 0.8) % 340 + 340) % 340 - 10), sw = Math.round(Math.sin(clock * 2 + i) * 1), h = 6 + (i * 7) % 5;
     R(rx + sw, 74 - h, 1, h, i % 3 ? '#4a6a2a' : '#5a7a34'); if (i % 3 === 0) R(rx + sw, 73 - h, 1, 3, '#6a3a1a'); }
-  // the road: ruts and pebbles rushing by
   R(0, 76, LW, 30, '#b08a58');
-  bake('lakeRoad', LW, 30, px => { for (let y = 0; y < 30; y++) for (let x = 0; x < LW; x++) if (dith(x, y) < 0.08) px(x, y, 1, 1, '#c4a06a'); });
-  strip(BAKED.lakeRoad, s, 76);
+  strip(bake('lakeRoad', LW, 30, px => { for (let y = 0; y < 30; y++) for (let x = 0; x < LW; x++) if (dith(x, y) < 0.08) px(x, y, 1, 1, '#c4a06a'); }), s, 76);
   R(0, 92, LW, 2, '#9a7448'); R(0, 100, LW, 2, '#9a7448');
   for (let i = 0; i < 30; i++) { const dx = ((i * 53 - s) % 340 + 340) % 340 - 10; R(Math.round(dx), 80 + (i * 7) % 24, 3, 1, i % 4 ? '#9a7448' : '#d0b080'); }
   R(0, 104, LW, 2, '#8a8a40');
-  // meadow with wildflowers
-  bake('lakeMeadow', LW, 74, px => gradPx(px, 0, 0, LW, 74, ['#7a9a44', '#6e8e3c', '#648436', '#5a7a30']));
-  g.drawImage(BAKED.lakeMeadow, 0, 106);
+  g.drawImage(bake('lakeMeadow', LW, 74, px => gradPx(px, 0, 0, LW, 74, ['#7a9a44', '#6e8e3c', '#648436', '#5a7a30'])), 0, 106);
   for (let i = 0; i < 50; i++) { const fx = ((i * 29 - s * 1.3) % 340 + 340) % 340 - 10, fy = 108 + (i * 11) % 60; R(Math.round(fx), fy, 1, 1, ['#e8c040', '#f4efe0', '#c04a6a', '#9ab4e8'][i % 4]); if (fy > 140) R(Math.round(fx), fy + 1, 1, 2, '#4a6a2a'); }
-  // fence posts going by
   for (let i = 0; i < 6; i++) { const fx = Math.round(((i * 70 - s * 1.2) % 420 + 420) % 420 - 40); R(fx - 67, 118, 70, 2, '#7a5a34'); R(fx - 67, 118, 70, 1, '#9a7a4a'); R(fx - 67, 126, 70, 2, '#7a5a34'); R(fx, 114, 3, 18, '#6e4a2a'); R(fx, 114, 1, 18, '#8a6a40'); }
   wagonSide(118, 102, true, clock * 4.5, you);
-  // tall grass in the very front, blurring past
   for (let i = 0; i < 26; i++) { const gx = Math.round(((i * 23 - s * 2.2) % 360 + 360) % 360 - 20), h = 10 + (i * 5) % 9;
     for (let j = 0; j < h; j++) R(gx + Math.round(j * 0.2), LH - j, 1, 1, j > h - 3 ? '#a8b860' : '#4a6a2a'); }
+}
+
+// =====================================================================
+//  JUMPS! A full-road blockade of bandits and natives sits behind a ramp
+//  that only covers part of the road. Hit the ramp and the wagon sails
+//  over them in slow motion; miss it and you plow into the blockade.
+//  There's a TNT barrel in the middle: shoot it mid-air for a big KA-BLAMMO.
+// =====================================================================
+const JUMP_T = 1.15, SLOWMO = 0.33, BLOCK_GAP = 3.2;
+const jumpK = () => (RIDE.air > 0 ? Math.min(1, RIDE.airT / JUMP_T) : 0);
+function spawnJump(lane) {
+  RIDE.obs.push({ kind: 'ramp', lanes: [lane], z: SPAWN });
+  const members = [];
+  for (let i = 0; i < 9; i++) {
+    const wx = -2.4 + i * 0.6, native = i % 2 === 1;
+    members.push({ wx, native, spec: native ? { ...NATIVE_RIDERS[i % 3], pose: 'bow' } : { ...OUTLAWS[i % OUTLAWS.length], pose: 'aim' }, alive: true, bob: Math.random() * 4 });
+  }
+  RIDE.blocks.push({ z: SPAWN + 0.95 + RIDE.v * JUMP_T * 0.55, lane, // right under you at the top of the jump
+    members, barrel: true, checked: false });
+}
+function startJump() {
+  RIDE.air = JUMP_T; RIDE.airT = 0;
+  popText(160, 60, 'AIRBORNE!'); tone('sawtooth', 120, 60, 0.4, 0.12); noise(0.6, 0.3, 1500);
+}
+function land() {
+  RIDE.air = 0; RIDE.airT = 0; RIDE.camH = 1; RIDE.hzE = HZ; RIDE.roll = 0;
+  shake = Math.max(shake, 0.7); sfx.thud(); noise(0.5, 0.6, 500);
+  burst(130, 168, 14, ['#c8a070', '#a87a48', '#e6cc98'], 120); burst(190, 168, 14, ['#c8a070', '#a87a48', '#e6cc98'], 120);
+  popText(160, 70, pick(['YEEHAW!', 'STUCK THE LANDING!', 'GIDDY UP!']));
+}
+// project a blockade item; returns screen rect for a figure-sized thing
+function blockPos(b, wx, wH) { const s = FOC / b.z; return { x: projX(wx, b.z), y: projY(b.z), s, h: wH * s }; }
+function memberRect(b, m) { const P2 = blockPos(b, m.wx, 0.8), sc = P2.h / 32; return { x: P2.x - 10 * sc, y: P2.y - 32 * sc - P2.s * 0.18, w: 20 * sc, h: 32 * sc, sc }; }
+function barrelRect(b) { const P2 = blockPos(b, b.lane, 0.42), w = 0.32 * P2.s; return { x: P2.x - w / 2, y: P2.y - P2.h - 0.12 * P2.s, w, h: P2.h }; }
+function launchMember(b, m, power) {
+  m.alive = false; const r = memberRect(b, m);
+  RIDE.flyers.push({ spec: m.spec, x: r.x, y: r.y, sc: Math.max(0.5, r.sc), vx: (m.wx - b.lane) * (60 + Math.random() * 60) * power + (Math.random() - 0.5) * 40, vy: -(140 + Math.random() * 120) * power, rot: 0, vr: (Math.random() - 0.5) * 14 });
+}
+function blowBarrel(b) {
+  b.barrel = false; const r = barrelRect(b), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  RIDE.booms.push({ x: cx, y: cy, t: 0, size: 3.2 });
+  shake = Math.max(shake, 0.9); noise(1.6, 0.8, 400); tone('sine', 80, 20, 1.6, 0.5); tone('square', 60, 25, 1.2, 0.15);
+  burst(cx, cy, 40, ['#ffd23f', '#ff9a3a', '#e05020', '#5a5450', '#8a5530'], 220);
+  for (const m of b.members) if (m.alive) { launchMember(b, m, 1.4); S.n.outlaw++; }
+  addScore(1000, 'obj'); S.n.obj++; targets++; popText(cx, cy - 20, 'KA-BLAMMO! +1000');
+}
+function rampObs(o) { // a rickety wooden ramp with yellow chevrons and a little flag
+  const L = 0.95, HT = 0.5, steps = 24, lane = o.lanes[0];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, zz = o.z + t * L, s = FOC / zz, y = Math.round(projY(zz) - t * HT * s);
+    const xl = Math.round(projX(lane - 0.45, zz)), xr = Math.round(projX(lane + 0.45, zz));
+    R(xl, y, xr - xl, 2, i % 3 === 0 ? '#6e4224' : i % 2 ? '#9a6236' : '#8a5530');
+    if (i % 6 === 3) { const cx = (xl + xr) >> 1, w = Math.max(1, (xr - xl) >> 3); R(cx - w * 2, y, w, 1, '#ffd23f'); R(cx - w, y - 1, w, 1, '#ffd23f'); R(cx + w, y, w, 1, '#ffd23f'); }
+  }
+  for (const side of [-0.45, 0.45]) { const x0 = projX(lane + side, o.z), x1 = projX(lane + side, o.z + L), y1 = projY(o.z + L) - HT * FOC / (o.z + L);
+    line(x1, y1, x1, projY(o.z + L), '#4a2a14'); line(x0, projY(o.z), x1, y1, '#4a2a14'); }
+  const fz = o.z + L, fs = FOC / fz, fx = Math.round(projX(lane + 0.45, fz)), fy = Math.round(projY(fz) - HT * fs);
+  R(fx, fy - Math.round(0.4 * fs), 1, Math.round(0.4 * fs), '#3b2210'); R(fx + 1, fy - Math.round(0.4 * fs), Math.max(2, Math.round(0.2 * fs)), Math.max(1, Math.round(0.12 * fs)), Math.floor(clock * 6) % 2 ? '#c0302b' : '#e0503a');
+}
+function drawBlock(b) {
+  const s = FOC / b.z;
+  // the gang, standing shoulder to shoulder across the whole road
+  for (const m of b.members) if (m.alive) {
+    const r = memberRect(b, m), bob = Math.floor(clock * 3 + m.bob) % 2 ? 0 : Math.max(1, Math.round(r.sc));
+    blit(getSprite(m.spec), Math.round(r.x), Math.round(r.y) - bob, r.sc);
+  }
+  // barricade: crates and logs from one side of the road to the other
+  for (let wx = -2.5; wx <= 2.51; wx += 0.5) {
+    const P2 = blockPos(b, wx, 0.32), w = 0.42 * P2.s, x = Math.round(P2.x - w / 2), y = Math.round(P2.y - P2.h);
+    R(x, y, Math.round(w), Math.round(P2.h), '#8a5530'); R(x, y, Math.round(w), Math.max(1, Math.round(P2.h * 0.15)), '#b07a44');
+    R(x, y + Math.round(P2.h / 2), Math.round(w), 1, '#5a3418'); line(x, y, x + w, y + P2.h, '#6e4224');
+  }
+  if (b.barrel) { // the big red TNT barrel, fuse fizzing
+    const r = barrelRect(b), x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
+    R(x - 1, y - 1, w + 2, h + 2, INK); R(x, y, w, h, '#c0302b'); R(x, y, Math.max(1, w >> 2), h, '#e0503a');
+    R(x, y + Math.round(h * 0.2), w, Math.max(1, Math.round(h * 0.08)), '#3b2210'); R(x, y + Math.round(h * 0.75), w, Math.max(1, Math.round(h * 0.08)), '#3b2210');
+    if (w > 14) signText('TNT', x + (w >> 1), y + Math.round(h * 0.38), '#f4efe0');
+    if (Math.floor(clock * 20) % 2) disc(x + (w >> 1), y - Math.max(2, Math.round(s * 0.06)), Math.max(1, Math.round(s * 0.03)), '#ffd23f');
+  }
+}
+function slowGun() { tone('sine', 140, 30, 1.1, 0.45); noise(1.3, 0.45, 700); tone('sawtooth', 70, 40, 0.9, 0.08); }
+const fastGun = sfx.gun; sfx.gun = () => (run === RUNS.trail && RIDE.air > 0 ? slowGun() : fastGun());
+
+// what's under the crosshair right now? returns a function that keeps giving that thing's current centre
+function aimAt(x, y) {
+  const mid = rr => ({ x: rr.x + rr.w / 2, y: rr.y + rr.h / 2 });
+  for (const b of RIDE.blocks) {
+    if (b.barrel && inBox(x, y, barrelRect(b))) return () => (b.barrel && b.z > 0.7 ? mid(barrelRect(b)) : null);
+    for (const m of b.members) if (m.alive && inBox(x, y, memberRect(b, m))) return () => (m.alive && b.z > 0.7 ? mid(memberRect(b, m)) : null);
+  }
+  for (const bd of RIDE.birds) if (!bd.dead && inBox(x, y, { x: bd.x - 6, y: bd.y - 4, w: 13, h: 8 })) return () => (bd.dead ? null : { x: bd.x, y: bd.y });
+  for (const rd of RIDE.riders) if (!rd.dead && inBox(x, y, riderBox(rd, riderGeom(rd)))) return () => { if (rd.dead) return null; const B = riderBox(rd, riderGeom(rd)); return { x: B.x + B.w / 2, y: B.y + 8 }; };
+  return null;
 }
