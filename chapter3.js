@@ -272,15 +272,15 @@ CUTS.ch3Wake = {
   },
   lines: [
     ['narr', 'YOU WAKE UP WITH A SPLITTING HEADACHE, TIED TO A STALAGMITE IN A DAMP CAVERN. A TORCH FLICKERS ON THE WALL.'],
-    ['eliza', "MORNIN', SHERIFF. SLEEP WELL? THAT COFFEE HAD A LITTLE SOMETHIN' EXTRA IN IT."],
+    ['eliza', "MORNIN', SHERIFF. SLEEP WELL?"],
     ['eliza', "TIME I CAME CLEAN. I WORK FOR MR. MCGRUDDER."],
     ['eliza', "THE BANDITS ON THE TRAIL? THE GANG AT AUNT MAE'S CABIN? THAT WAS ME, TRYIN' TO GET YOU KILLED."],
     ['eliza', "TWICE! AND YOU JUST WOULDN'T DIE. SO NOW I'M GONNA BLOW YOU TO KINGDOM COME."],
     ['narr', "SHE PULLS OFF HER BONNET... AND HER HAIR. IT'S A WIG. UNDERNEATH, HER HAIR IS JET BLACK."],
-    ['jenny', "THE NAME'S JENNY. ELIZA WAS JUST A COSTUME."],
+    ['jenny', "THE NAME'S JENNY. THERE NEVER WAS AN ELIZA. OR A JEB, FOR THAT MATTER."],
     ['jenny', "AND I'LL BE TAKIN' THIS."],
     ['narr', 'SHE TAKES YOUR REVOLVER, STRIKES A MATCH ON YOUR BOOT, AND LIGHTS THE FUSE.'],
-    ['jenny', 'SO LONG, SHERIFF. GIVE MY REGARDS TO KINGDOM COME.'],
+    ['jenny', 'SO LONG, SHERIFF. SAY HI TO MAD DOG FOR ME.'],
   ],
 };
 
@@ -289,11 +289,11 @@ CUTS.ch3Wake = {
 // =====================================================================
 const C3HZ = 58, C3FX = (wx, z) => 160 + wx * 110 / z, C3FY = z => C3HZ + 112 / z;
 const C3_FUSE = { // per badge: how fast the spark crawls, how big a target it is, spit recharge (s)
-  yellow:     { speed: 1 / 34, size: 1.5, cool: 0.7 },
-  deputy:     { speed: 1 / 25, size: 1.2, cool: 1.0 },
-  gunslinger: { speed: 1 / 17, size: 1.0, cool: 1.25 },
+  yellow:     { speed: 1 / 24, size: 1.5, cool: 0.7 },
+  deputy:     { speed: 1 / 18, size: 1.2, cool: 1.0 },
+  gunslinger: { speed: 1 / 13, size: 1.0, cool: 1.25 },
 };
-const C3_HITS = 5, C3_PUSH = 0.05;
+const C3_HITS = 5, C3_PAUSE = 0.7; // each hit stalls the spark for a moment, then it keeps burning
 // the fuse snakes across the cave floor toward the bundle at your feet
 const C3PATH = (() => {
   const key = [[1.0, 13], [-0.7, 11.2], [0.9, 9.4], [-1.1, 7.6], [0.7, 6.1], [-0.6, 4.7], [0.55, 3.5], [-0.35, 2.5], [0.15, 1.75], [0, 1.22]];
@@ -371,7 +371,7 @@ function c3Spit(x, y) { // fire a glob of spit from your mouth toward (x, y)
 function c3SpitLands(sp) {
   const cfg = C3_FUSE[diff.key] || C3_FUSE.deputy, at = c3PathAt(C3F.s), r = (5 + 12 / at.z) * cfg.size;
   if (!C3F.out && Math.hypot(sp.x - at.x, sp.y - (at.y - 3 / at.z)) < r) {
-    C3F.hits++; hits++; targets++; C3.stats.sparkHits++; C3F.s = Math.max(0, C3F.s - C3_PUSH); C3F.sputter = 0.6;
+    C3F.hits++; hits++; targets++; C3.stats.sparkHits++; C3F.sputter = C3_PAUSE;
     for (let i = 0; i < 8; i++) C3F.steam.push({ x: at.x + (Math.random() - 0.5) * 6, y: at.y - 2, vx: (Math.random() - 0.5) * 20, vy: -20 - Math.random() * 25, t: 0 });
     noise(0.5, 0.2, 8000); addScore(100, 'obj');
     if (C3F.hits >= C3_HITS) { C3F.out = true; C3F.outT = 0; addScore(500, 'obj'); popText(at.x, at.y - 18, 'FUSE OUT! +500'); noise(1.2, 0.25, 9000); }
@@ -398,7 +398,7 @@ RUNS.fuse = {
     C3F.cd = Math.max(0, C3F.cd - dt); C3F.sputter = Math.max(0, C3F.sputter - dt); C3F.dry = Math.max(0, C3F.dry - dt);
     if (C3F.out) { C3F.outT += dt; return; }
     if (C3F.boomT > 0) { C3F.boomT += dt; if (C3F.boomT > 0.7) { C3F.boomT = 0; hurt('fuse', null); } return; }
-    C3F.s += cfg.speed * dt * (C3F.sputter > 0 ? 0.25 : 1);
+    if (C3F.sputter <= 0) C3F.s += cfg.speed * dt;
     if (C3F.s >= 1) { C3F.s = 1; C3F.boomT = 0.01; shake = 1; flash = 1; noise(1.6, 0.9, 400); tone('sine', 70, 20, 1.4, 0.5); return; }
     if (C3F.bi < C3_BATS.length && time >= C3_BATS[C3F.bi]) { C3F.bi++; const d = Math.random() < 0.5 ? 1 : -1; C3F.bats.push({ x: d > 0 ? -10 : LW + 10, y: 22 + Math.random() * 26, vx: d * (55 + Math.random() * 25), vy: 0, dead: false, seed: Math.random() * 4 }); }
     for (const b of C3F.bats) { b.x += b.vx * dt; if (b.dead) { b.vy += 300 * dt; b.y += b.vy * dt; } else b.y += Math.sin(clock * 6 + b.seed) * 0.6; }
@@ -489,14 +489,14 @@ CUTS.ch3Canyon = {
 // =====================================================================
 const C3GY = 128, C3PX = 62, C3_RUN_T = 45;
 const C3_RUN = { // per badge
-  yellow:     { v0: 80,  v1: 120, gap: 1.2,  crashes: 3 },
-  deputy:     { v0: 95,  v1: 145, gap: 0.98, crashes: 2 },
-  gunslinger: { v0: 112, v1: 172, gap: 0.8,  crashes: 1 },
+  yellow:     { v0: 96,  v1: 140, gap: 1.2,  crashes: 3 },
+  deputy:     { v0: 114, v1: 170, gap: 0.98, crashes: 2 },
+  gunslinger: { v0: 132, v1: 196, gap: 0.8,  crashes: 1 },
 };
 const C3D = {};
 const C3_OBS = {
   bush:   { w: 13, h: 8 }, rock: { w: 13, h: 9 }, cactus: { w: 7, h: 18 }, cactus2: { w: 16, h: 15 },
-  snake:  { w: 15, h: 6 }, tumble: { w: 10, h: 10 },
+  snake:  { w: 15, h: 6 }, tumble: { w: 10, h: 10 }, tallsnake: { w: 15, h: 6 }, buzzard: { w: 14, h: 8 },
 };
 const C3_JUMP_BTN = { x: 12, y: H - 116, w: 170, h: 104 }, C3_PUNCH_BTN = { x: W - 182, y: H - 116, w: 170, h: 104 };
 function c3RunCfg() { return C3_RUN[diff.key] || C3_RUN.deputy; }
@@ -510,23 +510,24 @@ function c3Punch() {
   C3D.punch = 0.2; C3D.pcd = 0.34; C3D.btn.p = 0.15; noise(0.06, 0.2, 1800);
 }
 function c3Spawn(t) {
-  const r = Math.random(), late = t > 12, pool = [['bush', 0.22], ['rock', 0.2], ['cactus', 0.22], ['snake', 0.22], ['cactus2', late ? 0.08 : 0], ['tumble', t > 8 ? 0.08 : 0]];
+  const r = Math.random(), late = t > 12, pool = [['bush', 0.22], ['rock', 0.2], ['cactus', 0.22], ['snake', 0.22], ['cactus2', late ? 0.08 : 0], ['tumble', t > 8 ? 0.08 : 0], ['tallsnake', t > 5 ? 0.13 : 0], ['buzzard', t > 3 ? 0.13 : 0]];
   const tot = pool.reduce((a, p) => a + p[1], 0); let acc = 0, kind = 'bush';
   for (const [k, w] of pool) { acc += w / tot; if (r <= acc) { kind = k; break; } }
   const o = { kind, x: LW + 10, ...C3_OBS[kind], rear: 0, y: 0, vy: 0, hit: false, passed: false, gone: false, seed: Math.random() * 6 };
   if (kind === 'tumble') { o.y = -10; o.vy = 0; }
+  if (kind === 'tallsnake') { o.kind = 'snake'; o.tall = true; }          // rears up taller than you can jump
+  if (kind === 'buzzard') { o.by = C3GY - 58; }                            // dives at your head wherever you are
   C3D.obs.push(o);
-  if (Math.random() < 0.35) C3D.items.push({ x: LW + 40 + Math.random() * 30, y: C3GY - 30 - Math.random() * 6, got: false });
 }
-function c3ObBox(o) { const h = o.kind === 'snake' ? Math.round(6 + o.rear * 12) : o.h; return { x: o.x, y: C3GY - h + (o.kind === 'tumble' ? o.y : 0), w: o.w, h }; }
+function c3ObBox(o) { if (o.kind === 'buzzard') return { x: o.x, y: o.by - 4, w: 14, h: 9 }; const h = o.kind === 'snake' ? Math.round(6 + o.rear * (o.tall ? 34 : 12)) : o.h; return { x: o.x, y: (o.base ?? C3GY) - h + (o.kind === 'tumble' ? o.y : 0), w: o.w, h }; }
 function c3PlayerBox() { return { x: C3PX + 3, y: C3D.y - 22, w: 8, h: 21 }; }
 const c3Overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 function c3Stumble(o) {
   o.hit = true; C3D.inv = 1.3; C3D.trip = 0.35; C3D.bumps++; shake = Math.max(shake, 0.5); sfx.thud();
-  if (o.kind === 'snake' || o.kind === 'tumble') { o.fly = true; o.vy = -90; o.vx = 60; }
+  if (o.kind === 'snake' || o.kind === 'tumble' || o.kind === 'buzzard') { o.fly = true; o.vy = -90; o.vx = 60; }
   const left = c3RunCfg().crashes - C3D.bumps;
-  if (left > 0) { woundT = 0.7; popText(C3PX + 8, C3D.y - 34, o.kind === 'snake' ? 'SNAKEBIT! ' + left + ' LEFT' : 'OOF! ' + left + ' LEFT'); return; }
-  C3D.bumps = 0; hurt(o.kind === 'snake' ? 'snake' : 'trip', null);
+  if (left > 0) { woundT = 0.7; popText(C3PX + 8, C3D.y - 34, o.kind === 'buzzard' ? 'PECKED! ' + left + ' LEFT' : o.kind === 'snake' ? 'SNAKEBIT! ' + left + ' LEFT' : 'OOF! ' + left + ' LEFT'); return; }
+  C3D.bumps = 0; hurt(o.kind === 'buzzard' ? 'buzzard' : o.kind === 'snake' ? 'snake' : 'trip', null);
 }
 // ---- the runner: you, side view, with a 4-frame run cycle, a jump pose and a punch
 function c3Runner(x, footY, fr, air, punch, trip) {
@@ -555,9 +556,9 @@ function c3Runner(x, footY, fr, air, punch, trip) {
   if (trip > 0) g.restore();
 }
 function c3DrawOb(o) {
-  const x = Math.round(o.x), b = C3GY;
+  const x = Math.round(o.x), b = o.base ?? C3GY;
   if (o.fly) { g.save(); g.translate(x + o.w / 2, b - 4 + o.fy); g.rotate(o.rot || 0); g.translate(-(x + o.w / 2), -(b - 4)); }
-  if (o.kind === 'bush') { for (let j = 0; j < 8; j++) { const hw = Math.round(6 * Math.sqrt(1 - Math.pow((j - 8) / 8, 2) * 0.6)); R(x + 6 - hw, b - 8 + j, hw * 2, 1, j < 2 ? '#a8a860' : j % 2 ? '#7a8a44' : '#8a9a4a'); } R(x + 2, b - 7, 1, 1, '#c8c890'); R(x + 9, b - 5, 1, 1, '#c8c890'); }
+  if (o.kind === 'bush') { for (let j = 0; j < 8; j++) { const hw = Math.round(6 * Math.sqrt(1 - Math.pow((j - 8) / 8, 2) * 0.6)); R(x + 6 - hw, b - 8 + j, hw * 2, 1, j < 2 ? '#4e7a34' : j % 2 ? '#2e5224' : '#3a6228'); } R(x + 2, b - 7, 1, 1, '#6a9a44'); R(x + 9, b - 5, 1, 1, '#6a9a44'); }
   else if (o.kind === 'rock') { for (let j = 0; j < 9; j++) { const hw = Math.round(6.5 * Math.sqrt(1 - Math.pow((9 - j) / 9, 2) * 0.85)); R(x + 6 - hw, b - 9 + j, hw * 2, 1, j < 3 ? '#b8a48c' : '#8a7462'); R(x + 6 + Math.round(hw * 0.3), b - 9 + j, Math.max(1, Math.round(hw * 0.7)), 1, '#6a5644'); } }
   else if (o.kind === 'cactus' || o.kind === 'cactus2') {
     const one = (cx, h) => { R(cx, b - h, 4, h, '#3a7a3a'); R(cx, b - h, 1, h, '#5a9a4a'); R(cx + 3, b - h, 1, h, '#2a5a2a'); R(cx - 3, b - h + 5, 3, 2, '#3a7a3a'); R(cx - 3, b - h + 2, 2, 4, '#3a7a3a'); R(cx + 4, b - h + 8, 3, 2, '#3a7a3a'); R(cx + 5, b - h + 4, 2, 5, '#3a7a3a'); R(cx + 1, b - h - 1, 2, 1, '#e8607a'); };
@@ -567,9 +568,15 @@ function c3DrawOb(o) {
     const rr = o.rear, rattle = Math.floor(clock * 30) % 2;
     for (let i = 0; i < 12; i++) { const yy = b - 2 - Math.round(Math.sin(i * 0.9 + clock * 6) * 1); R(x + 2 + i, yy, 2, 2, i % 3 ? '#b8955a' : '#6a4a2a'); }
     R(x + 14, b - 3 - rattle, 2, 2, '#e8d8a0');
-    const h = Math.round(4 + rr * 12);
+    const h = Math.round(4 + rr * (o.tall ? 32 : 12));
     for (let j = 0; j < h; j++) R(x + 1 + Math.round(Math.sin(j * 0.5 + clock * 4) * rr * 1.5), b - 2 - j, 3, 1, j % 3 ? '#b8955a' : '#6a4a2a');
     const hx = x - 1, hy = b - 3 - h; R(hx, hy, 5, 3, '#9a7a4a'); R(hx + 1, hy, 1, 1, '#ffd23f'); if (rr > 0.5 && Math.floor(clock * 8) % 2) R(hx - 3, hy + 2, 3, 1, '#c0302b');
+  }
+  else if (o.kind === 'buzzard') { // ugly old buzzard: bald red head, black wings flapping
+    const y = Math.round(o.by), up = Math.floor(clock * 10 + o.seed) % 2;
+    R(x + 2, y - 2, 9, 5, '#2a2228'); R(x + 3, y - 2, 7, 1, '#4a4048'); R(x - 1, y - 1, 3, 2, '#e8d8c0'); R(x - 3, y - 1, 3, 2, '#c04a3a'); R(x - 4, y, 1, 1, '#e8c040'); R(x - 2, y - 1, 1, 1, INK);
+    R(x + 10, y - 1, 4, 3, '#2a2228');
+    if (up) { R(x + 3, y - 8, 4, 6, '#2a2228'); R(x + 6, y - 6, 5, 4, '#3a3038'); } else { R(x + 3, y + 3, 4, 5, '#2a2228'); R(x + 6, y + 3, 5, 3, '#3a3038'); }
   }
   else if (o.kind === 'tumble') { const cx = x + 5, cy = b - 5 + o.y; ring(cx, cy, 5, 4, '#8a6a3a'); const a = clock * 8; line(cx - Math.cos(a) * 5, cy - Math.sin(a) * 5, cx + Math.cos(a) * 5, cy + Math.sin(a) * 5, '#a8864a'); line(cx - Math.sin(a) * 5, cy + Math.cos(a) * 5, cx + Math.sin(a) * 5, cy - Math.cos(a) * 5, '#a8864a'); }
   if (o.fly) g.restore();
@@ -591,7 +598,8 @@ function c3DesertArt() {
     for (const y of [22, 30]) for (let x = 0; x < 320; x++) px(x, y + (c3Hash(x >> 2) > 0.8 ? 1 : 0), 1, 2, '#a8723e');
     px(0, 0, 320, 1, '#f0c890'); }), d, 108);
   // shadows + dust + collectibles + obstacles + you
-  g.globalAlpha = 0.3; R(C3PX + 1, C3GY, 14 - Math.round(Math.max(0, C3GY - C3D.y) * 0.15), 2, '#5a3418'); g.globalAlpha = 1;
+  C3D.plats.forEach(c3DrawRock);
+  { const fl = c3Under(C3D.y).floor; g.globalAlpha = 0.3; R(C3PX + 1, fl, 14 - Math.round(Math.max(0, fl - C3D.y) * 0.15), 2, '#5a3418'); g.globalAlpha = 1; }
   for (const it of C3D.items) if (!it.got) { const x = Math.round(it.x), y = Math.round(it.y + Math.sin(clock * 4 + it.x) * 1.5);
     R(x - 3, y - 4, 7, 8, INK); R(x - 2, y - 3, 5, 6, '#4a7ab4'); R(x - 2, y - 3, 1, 6, '#7aa8d8'); R(x - 1, y - 6, 3, 2, '#8a8a96'); R(x - 4, y - 2, 1, 4, '#6a4020'); R(x + 4, y - 2, 1, 4, '#6a4020'); }
   C3D.obs.forEach(c3DrawOb);
@@ -603,20 +611,30 @@ function c3DesertArt() {
   for (let i = 0; i < 16; i++) { const x = Math.round(((i * 41 - d * 1.4) % 360 + 360) % 360 - 20), h = 3 + (i * 7) % 4; for (let j = 0; j < h; j++) R(x + (j >> 1), 172 - j, 1, 1, j > h - 2 ? '#c8b070' : '#8a7a40'); }
 }
 RUNS.desert = {
-  c3: true, label: null, name: 'THE LONG RUN', title: 'THE LONG RUN', hint: 'JUMP THE BRUSH! PUNCH THE SNAKES!', tune: 'c3run',
-  hurtText: { trip: { title: 'FACEPLANT!', reason: 'JUMP THE BRUSH, PARTNER.', color: '#ffb347' }, snake: { title: 'SNAKEBIT!', reason: 'PUNCH THE RATTLERS.', color: '#ff3b30' } },
-  reset() { Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], items: [], dust: [], pows: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0 } }); ammo = 6; },
+  c3: true, label: null, name: 'THE LONG RUN', title: 'THE LONG RUN', hint: 'JUMP UP THE ROCKS! PUNCH SNAKES + BUZZARDS!', tune: 'c3run',
+  hurtText: { trip: { title: 'FACEPLANT!', reason: 'JUMP THE BRUSH, PARTNER.', color: '#ffb347' }, snake: { title: 'SNAKEBIT!', reason: 'PUNCH THE RATTLERS.', color: '#ff3b30' }, buzzard: { title: 'PECKED!', reason: 'PUNCH THE BUZZARDS.', color: '#ff3b30' }, rock: { title: 'SMACK!', reason: 'JUMP UP ONTO THE ROCKS.', color: '#ff3b30' } },
+  reset() { Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], items: [], plats: [], forms: c3Forms(), dust: [], pows: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0 } }); ammo = 6; },
   tick(dt) { C3D.dist += C3D.v * dt * 0.5; C3D.runT += dt * 0.6; },
   update(dt) {
     ammo = 6; const cfg = c3RunCfg(), k = Math.min(1, time / C3_RUN_T);
     C3D.v = cfg.v0 + (cfg.v1 - cfg.v0) * k; C3D.dist += C3D.v * dt; C3D.runT += dt * (C3D.v / 100);
     C3D.btn.j = Math.max(0, C3D.btn.j - dt); C3D.btn.p = Math.max(0, C3D.btn.p - dt);
     C3D.punch = Math.max(0, C3D.punch - dt); C3D.pcd = Math.max(0, C3D.pcd - dt); C3D.inv = Math.max(0, C3D.inv - dt); C3D.trip = Math.max(0, C3D.trip - dt);
-    if (C3D.air) { C3D.vy += 640 * dt; C3D.y += C3D.vy * dt; if (C3D.y >= C3GY) { C3D.y = C3GY; C3D.air = false; C3D.vy = 0; C3D.dust.push({ x: C3PX + 6, y: C3GY, vx: -40, vy: -8, t: 0 }); } }
-    else if (Math.random() < dt * 8) C3D.dust.push({ x: C3PX + 2, y: C3GY - 1, vx: -C3D.v * 0.4, vy: -6, t: 0 });
+    for (const pl of C3D.plats) pl.x -= C3D.v * dt;
+    C3D.plats = C3D.plats.filter(pl => pl.x + pl.w > -20);
+    while (C3D.forms.length && time >= C3D.forms[0].t) c3BuildForm(C3D.forms.shift().seq);
+    const prevY = C3D.y;
+    if (C3D.air) { C3D.vy += 640 * dt; C3D.y += C3D.vy * dt; }
+    { const u = c3Under(Math.min(prevY, C3D.y));
+      if (u.wall) { c3Smack(); return; }
+      if (C3D.air && C3D.vy >= 0 && C3D.y >= u.floor) { C3D.y = u.floor; C3D.air = false; C3D.vy = 0; C3D.dust.push({ x: C3PX + 6, y: C3D.y, vx: -40, vy: -8, t: 0 }); }
+      else if (!C3D.air && u.floor > C3D.y + 1) { C3D.air = true; C3D.vy = 0; } } // ran off the edge of a rock
+    if (!C3D.air && Math.random() < dt * 8) C3D.dust.push({ x: C3PX + 2, y: C3D.y - 1, vx: -C3D.v * 0.4, vy: -6, t: 0 });
     for (const p of C3D.dust) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; }
     C3D.dust = C3D.dust.filter(p => p.t < 0.5);
     C3D.spawnT -= dt;
+    const rocksNear = C3D.plats.some(pl => pl.x + pl.w > LW - 100) || (C3D.forms.length && C3D.forms[0].t - time < 1.6);
+    if (rocksNear) C3D.spawnT = Math.max(C3D.spawnT, 0.2);
     if (C3D.spawnT <= 0 && time < C3_RUN_T - 2) { c3Spawn(time); C3D.spawnT = Math.max(0.95, cfg.gap * (0.85 + Math.random() * 0.7) * (cfg.v0 / C3D.v) * 1.1); } // never closer than one jump can clear
     const pb = c3PlayerBox(), fist = { x: C3PX + 10, y: C3D.y - 22, w: 22, h: 18 };
     for (const it of C3D.items) { it.x -= C3D.v * dt; if (!it.got && c3Overlap(pb, { x: it.x - 3, y: it.y - 5, w: 7, h: 9 })) { it.got = true; C3.stats.canteens++; addScore(100, 'bottle'); S.n.bottle++; popText(it.x, it.y - 8, 'WATER! +100'); tone('square', 880, 1320, 0.1, 0.05); } }
@@ -625,11 +643,13 @@ RUNS.desert = {
       o.x -= C3D.v * dt;
       if (o.fly) { o.fvy = (o.fvy ?? o.vy) + 500 * dt; o.fy = (o.fy || 0) + o.fvy * dt; o.x += (o.vx || 0) * dt; o.rot = (o.rot || 0) + dt * 12; if (o.fy > 80) o.gone = true; continue; }
       if (o.kind === 'snake') { const dx = o.x - C3PX; if (dx < 80 && o.rear < 1) { if (o.rear === 0) noise(0.5, 0.12, 6000); o.rear = Math.min(1, o.rear + dt * 3); } }
+      if (o.kind === 'buzzard') { o.x -= 35 * dt; const dx = o.x - C3PX, ty = dx < 130 ? C3D.y - 16 : C3GY - 58; o.by += (ty - o.by) * Math.min(1, dt * 5); if (dx < 130 && !o.cawed) { o.cawed = true; tone('sawtooth', 700, 380, 0.25, 0.06); } }
       if (o.kind === 'tumble') { o.vy += 400 * dt; o.y += o.vy * dt; if (o.y > 0) { o.y = 0; o.vy = -150 - Math.random() * 40; } o.x -= 25 * dt; }
       const ob = c3ObBox(o);
-      if (C3D.punch > 0 && (o.kind === 'snake' || o.kind === 'tumble') && c3Overlap(fist, ob)) {
+      if (C3D.punch > 0 && (o.kind === 'snake' || o.kind === 'tumble' || o.kind === 'buzzard') && c3Overlap(fist, ob)) {
         o.fly = true; o.vy = -150; o.vx = 120; sfx.hit(); targets++; hits++;
-        if (o.kind === 'snake') { C3.stats.snakes++; S.n.obj++; addScore(150, 'obj'); popText(o.x, C3GY - 26, 'POW! +150'); }
+        if (o.kind === 'buzzard') { C3.stats.buzzards = (C3.stats.buzzards || 0) + 1; S.n.obj++; addScore(200, 'obj'); popText(o.x, o.by - 10, 'WHAP! +200'); burst(o.x + 6, o.by, 10, ['#2a2228', '#4a4048', '#c04a3a'], 60); }
+        else if (o.kind === 'snake') { C3.stats.snakes++; S.n.obj++; addScore(150, 'obj'); popText(o.x, C3GY - 26, 'POW! +150'); }
         else { addScore(50, 'obj'); popText(o.x, C3GY - 22, 'BAM! +50'); burst(o.x + 5, C3GY - 5, 10, ['#8a6a3a', '#a8864a'], 60); o.gone = true; }
         continue;
       }
@@ -638,7 +658,7 @@ RUNS.desert = {
     }
     C3D.obs = C3D.obs.filter(o => !o.gone && o.x > -30);
   },
-  done() { return time >= C3_RUN_T && !C3D.obs.some(o => o.x > C3PX - 10 && !o.fly); },
+  done() { return time >= C3_RUN_T && !C3D.forms.length && !C3D.plats.some(pl => pl.x + pl.w > C3PX) && !C3D.obs.some(o => o.x > C3PX - 10 && !o.fly); },
   shoot() { return true; },
   press(x, y) {
     if (state !== 'play') return;
@@ -679,9 +699,9 @@ SCENES.ch3End = {
     dim(0.72); panel(150, 30, 660, 480);
     text('TO BE CONTINUED...', W / 2, 52, 32, '#ffd23f', 'center');
     const k = Math.floor(this.t / 0.45), st = C3.stats;
-    const rows = [['SPARK HITS', st.sparkHits], ['BATS SPAT ON', st.bats], ['SNAKES PUNCHED', st.snakes], ['CANTEENS GRABBED', st.canteens], ['JUMPS', st.jumps]];
-    rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 120 + i * 36, 16, '#ffffff'); text(String(r[1]), 760, 120 + i * 36, 16, '#f3d18b', 'right'); } });
-    if (k > rows.length) { rect(200, 310, 560, 3, '#c98a4b'); text('SCORE', 200, 328, 24, '#ffffff'); text(String(score), 760, 328, 24, '#ffd23f', 'right'); }
+    const rows = [['SPARK HITS', st.sparkHits], ['BATS SPAT ON', st.bats], ['SNAKES PUNCHED', st.snakes], ['BUZZARDS WHAPPED', st.buzzards || 0], ['JUMPS', st.jumps]];
+    rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 108 + i * 30, 16, '#ffffff'); text(String(r[1]), 760, 108 + i * 30, 16, '#f3d18b', 'right'); } });
+    if (k > rows.length) { rect(200, 318, 560, 3, '#c98a4b'); text('SCORE', 200, 334, 24, '#ffffff'); text(String(score), 760, 334, 24, '#ffd23f', 'right'); }
     if (k > rows.length + 1) {
       text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 396, 16, '#ffd23f', 'center');
       text('JENNY IS OUT THERE SOMEWHERE...', W / 2, 432, 16, '#ff8a8a', 'center');
@@ -697,9 +717,11 @@ Object.assign(EPITAPHS, {
   fuse: [['RUSTY!!'], ['HE RAN OUT', 'OF SPIT.'], ['BLOWN TO', 'KINGDOM COME.'], ['JENNY SENDS', 'HER REGARDS.']],
   trip: [['RUSTY!!'], ['TRIPPED OVER', 'A SAGEBRUSH.'], ['HE FORGOT', 'TO JUMP.']],
   snake: [['RUSTY!!'], ['THE SNAKE', 'PUNCHED FIRST.'], ['HE TRIED TO JUMP', 'A RATTLESNAKE.']],
+  rock: [['RUSTY!!'], ['HE RAN INTO', 'A MESA.'], ['THE ROCK', 'DID NOT MOVE.'], ['FACE, MEET', 'SANDSTONE.']],
+  buzzard: [['RUSTY!!'], ['THE BUZZARDS', "DIDN'T WAIT."], ['LUNCH.']],
 });
 Object.assign(HURT, {
-  fuse: RUNS.fuse.hurtText.fuse, trip: RUNS.desert.hurtText.trip, snake: RUNS.desert.hurtText.snake,
+  fuse: RUNS.fuse.hurtText.fuse, trip: RUNS.desert.hurtText.trip, snake: RUNS.desert.hurtText.snake, buzzard: RUNS.desert.hurtText.buzzard, rock: RUNS.desert.hurtText.rock,
 });
 
 // ---------------- STORY ORDER (chapter 3) ----------------
@@ -741,3 +763,66 @@ draw = function () {
   }
   ctx.restore();
 };
+
+
+// =====================================================================
+//  ROCK STEPS: stair-stepped sandstone ledges. Each level is taller than
+//  your jump can clear twice, so you climb one level at a time. Run into
+//  the side of a ledge and it's lights out. Dropping down any height is fine.
+// =====================================================================
+const C3LV = 22; // one ledge level, in pixels (a jump peaks at ~37px: one level, never two)
+const C3_FORM_FIRST = [1, 0, 1, 2, 1, 2, 3, 4, 3, 4, 3, 2, 3, 4, 1];
+function c3RandForm(n) { const out = []; let L = 0; for (let i = 0; i < n; i++) { const up = Math.random() < 0.55; L = up ? Math.min(4, L + 1) : Math.floor(Math.random() * L) + (L > 1 ? 1 : 0); if (L === 0) L = 1; out.push(L); } return out; }
+function c3Forms() { return [{ t: 4, seq: C3_FORM_FIRST }, { t: 22, seq: c3RandForm(8) }, { t: 34, seq: c3RandForm(7) }]; }
+function c3BuildForm(seq) {
+  let x = Math.max(LW + 10, ...C3D.plats.map(pl => pl.x + pl.w + 40));
+  const v = C3D.v;
+  seq.forEach((lvl, i) => {
+    const w = Math.round(v * (0.78 + Math.random() * 0.25)), next = seq[i + 1] ?? 0;
+    if (lvl > 0) {
+      const pl = { x, w, lvl, seed: Math.random() * 1000 | 0 }; C3D.plats.push(pl);
+      const prev = i > 0 ? seq[i - 1] : 0;
+      if (prev > lvl && next <= lvl && w > v * 0.8 && Math.random() < 0.75) { // only on ledges you drop down onto, so there's room to land first // something nasty on top of this ledge
+        const kind = pick(['bush', 'rock', 'cactus', 'snake', 'snake']);
+        C3D.obs.push({ kind, x: x + Math.round(w * 0.6), ...C3_OBS[kind], base: C3GY - lvl * C3LV, rear: 0, y: 0, vy: 0, hit: false, passed: false, gone: false, seed: Math.random() * 6, ride: pl });
+      }
+    }
+    x += w;
+  });
+}
+// what's under your feet, and is there a ledge face in your way?
+function c3Under(feetY) {
+  let floor = C3GY, wall = false;
+  for (const pl of C3D.plats) if (pl.x < C3PX + 10 && pl.x + pl.w > C3PX + 4) {
+    const top = C3GY - pl.lvl * C3LV;
+    if (top < feetY - 3) wall = true; else floor = Math.min(floor, top);
+  }
+  return { floor, wall };
+}
+function c3Smack() {
+  shake = 1; sfx.thud(); noise(0.4, 0.6, 600); burst(C3PX + 12, C3D.y - 12, 14, ['#c8703c', '#e8a060', '#8a3a24'], 90);
+  C3D.bumps = 0; hurt('rock', null);
+}
+function c3DrawRock(pl) {
+  const x0 = Math.round(pl.x), w = pl.w, top = C3GY - pl.lvl * C3LV, H = C3GY - top + 2;
+  if (x0 > LW || x0 + w < 0) return;
+  // body: sandstone strata, warm lit top, cool shade toward the bottom
+  for (let j = 0; j < H; j++) {
+    const y = top + j, band = Math.floor((j + pl.seed % 5) / 4) % 4, lvlLine = j > 0 && j % C3LV === 0;
+    const col = j < 2 ? '#f2b878' : lvlLine ? '#7a3424' : ['#c8703c', '#b8603a', '#d07c44', '#a85434'][band];
+    R(x0, y, w, 1, col);
+    if (j >= 2 && !lvlLine) { // a few blotches + pebbles so it isn't flat
+      for (let k = 0; k < w / 14; k++) { const hx = x0 + Math.round(c3Hash(pl.seed + j * 31 + k * 7) * (w - 3)); if (c3Hash(pl.seed * 3 + j * 13 + k) > 0.72) R(hx, y, 2 + (k % 3), 1, band % 2 ? '#e08a50' : '#94482e'); }
+    }
+  }
+  // cracks running down the face
+  for (let k = 0; k < Math.max(1, w / 40); k++) { let cx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 91) * (w - 12)); for (let j = 3; j < Math.min(H, 18 + k * 5); j++) { R(cx, top + j, 1, 1, '#6a2c1e'); if (c3Hash(pl.seed + j * 5 + k) > 0.7) cx += c3Hash(pl.seed + j) > 0.5 ? 1 : -1; } }
+  // the front (left) face is in shadow, the top lip catches the sunset
+  R(x0, top, 3, H, '#8a3e2a'); R(x0, top, 1, H, '#5a2418');
+  R(x0, top, w, 1, '#ffd8a0'); R(x0 + 3, top + 1, w - 3, 1, '#e8a060');
+  // scrubby grass + a pebble or two on the top
+  for (let k = 0; k < w / 18; k++) { const gx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 17) * (w - 12)); R(gx, top - 2, 1, 2, '#6a7a34'); R(gx + 1, top - 1, 1, 1, '#8a9a44'); }
+  if (w > 40) { R(x0 + Math.round(w * 0.7), top - 1, 3, 1, '#b89070'); }
+  // an inky outline so it reads against the dunes
+  R(x0 - 1, top - 1, 1, H + 1, INK); R(x0, top - 1, w, 1, INK);
+}
