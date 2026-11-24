@@ -330,81 +330,6 @@ function horse(x, y, sc, fr, Hc, flip, blanket, moving = true) {
   hp(6, 7, 17, 1, Hc.light); hp(6, 15, 17, 1, Hc.dark); hp(30, 5, 2, 2, Hc.dark); hp(27, 2, 1, 1, INK);
   if (blanket) { hp(10, 6, 9, 5, blanket); hp(10, 10, 9, 1, shade(blanket, 0.7)); hp(12, 5, 5, 2, '#5a3418'); }
 }
-// =====================================================================
-//  TRAIL RIDERS — seen from behind and a little to the side (3/4 rear),
-//  like an old engraving: big rump and tail toward you, rider's back to
-//  you, horse's neck and head turned away up the trail. 40 x 52 grid,
-//  drawn facing right (riders on the left side); mirrored on the right.
-// =====================================================================
-const RW = 40, RH = 52;
-function rearShape(hp, ell, o) { // o = { Hc, sp, pose, fr, horse, rider, blanket, turned }
-  const { Hc, sp } = o, gal = [0, 2, 3, 1][o.fr % 4], gal2 = [3, 1, 0, 2][o.fr % 4], sw = [-1, 0, 1, 0][o.fr % 4];
-  if (o.horse) {
-    // far side: front legs, barrel, neck, head (further away = drawn first)
-    hp(29, 36, 2, 7 - (gal >> 1), Hc.dark); hp(29, 43 - (gal >> 1), 2, 1, '#2a1a10');
-    hp(32, 35, 2, 7 - (gal2 >> 1), Hc.dark); hp(32, 42 - (gal2 >> 1), 2, 1, '#2a1a10');
-    ell(25, 30, 9, 6, Hc.coat, Hc.dark, 0.25);
-    ell(30, 24, 3, 5, Hc.coat); ell(33, 19, 3, 4, Hc.coat);
-    hp(33, 12, 5, 5, Hc.coat); hp(37, 14, 3, 4, Hc.coat); hp(38, 16, 2, 2, Hc.dark); hp(35, 10, 1, 2, Hc.coat); hp(33, 10, 1, 2, Hc.coat);
-    // hind legs + the two haunches (closest to you)
-    hp(6, 41, 3, 9 - gal, Hc.coat); hp(6, 50 - gal, 3, 1, '#2a1a10');
-    hp(18, 41, 3, 9 - gal2, Hc.dark); hp(18, 50 - gal2, 3, 1, '#2a1a10');
-    ell(10, 34, 7, 9, Hc.coat); ell(18, 34, 7, 9, Hc.coat, Hc.dark, 0.0);
-  }
-  if (o.rider) {
-    const pants = sp.pants || '#3a3550', shirt = sp.shirt, vest = sp.vest || sp.coat, skin = sp.skin, hair = sp.hair || '#2a1a10', hc = sp.hatC || '#5a4a3a';
-    hp(22, 21, 4, 8, pants); hp(22, 28, 5, 4, sp.boots || '#2a1a10'); hp(21, 31, 7, 1, '#8a8a96');     // leg down the far flank + stirrup
-    hp(11, 19, 11, 4, pants);                                                                          // seat
-    hp(11, 6, 11, 14, shirt); if (vest) hp(12, 7, 9, 12, vest); hp(11, 18, 11, 2, '#3b2210');          // back, vest, belt
-    hp(14, 5, 4, 2, skin); hp(12, -1, 8, 7, hair);                                                     // neck + back of the head
-    if (sp.hairLong) { hp(15, 6, 3, 11, hair); hp(15, 17, 3, 1, '#c0302b'); }                          // braid
-    if (o.turned) { hp(19, 0, 3, 6, skin); hp(22, 2, 1, 2, skin); hp(20, 1, 1, 1, INK);                // face turned toward you
-      if (sp.face === 'bandana') hp(19, 3, 4, 3, sp.bandC || '#c0302b');
-      else if (sp.face === 'beard' || sp.face === 'mustache') hp(19, 4, 3, sp.face === 'beard' ? 3 : 1, sp.beardC || hair); }
-    if (sp.hat === 'cowboy') { hp(8, 2, 16, 2, hc); hp(11, -3, 10, 5, hc); hp(11, 1, 10, 1, shade(hc, 0.6)); hp(14, -3, 4, 1, shade(hc, 0.7)); }
-    else if (sp.hat === 'bowler') { hp(10, 2, 12, 1, hc); hp(11, -2, 10, 4, hc); hp(12, -3, 8, 1, hc); }
-    else if (sp.hat === 'feather') { hp(12, 1, 8, 1, hc); hp(17, -6, 1, 7, sp.featherC || '#f4efe0'); hp(17, -7, 1, 1, '#3b2210'); }
-    const arm = vest ? shirt : shade(shirt, 0.85);
-    const reinsL = () => { hp(8, 8, 3, 9, arm); hp(9, 16, 2, 2, skin); };
-    const reinsR = () => { hp(21, 8, 3, 9, arm); hp(21, 16, 2, 2, skin); };
-    switch (o.pose) {
-      case 'aim': reinsL(); hp(21, 7, 4, 3, arm); hp(24, 8, 5, 3, arm); hp(29, 8, 2, 3, skin);
-        hp(30, 7, 4, 3, '#4a4a52'); hp(34, 8, 2, 1, '#2a2a30'); hp(31, 9, 1, 2, '#6a4020'); break;
-      case 'bow': reinsR(); hp(21, 7, 9, 3, arm); hp(29, 7, 2, 3, skin);
-        hp(31, -1, 1, 18, '#7a4a20'); hp(30, -2, 1, 2, '#7a4a20'); hp(30, 16, 1, 2, '#7a4a20'); hp(32, 1, 1, 1, '#d8c8a0'); hp(32, 13, 1, 1, '#d8c8a0');
-        hp(22, 8, 11, 1, '#d8c8a0'); hp(33, 8, 2, 1, '#b8b8c0'); hp(20, 8, 2, 2, skin); break;
-      case 'wave': reinsL(); hp(21, -2, 3, 10, arm); hp(21, -5, 3, 3, skin); break;
-      case 'hit': hp(7, -4, 3, 11, arm); hp(22, -4, 3, 11, arm); hp(7, -6, 3, 2, skin); hp(22, -6, 3, 2, skin); break;
-      default: reinsL(); reinsR();
-    }
-  }
-}
-function drawRear(o, x, y, sc, flip, alpha = 1) {
-  let ink = false, ox = 0, oy = 0;
-  const hp = (lx, ly, w, h, c) => { if (w <= 0 || h <= 0) return; R((flip ? x + (RW - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c); };
-  const ell = (cx, cy, rx, ry, c, c2, split) => {
-    for (let j = -ry; j <= ry; j++) { const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (j * j) / (ry * ry)))); if (hw <= 0) continue;
-      hp(cx - hw, cy + j, hw * 2, 1, c); if (c2 && !ink && split != null) hp(cx + Math.round(hw * split), cy + j, hw - Math.round(hw * split), 1, c2); }
-  };
-  if (alpha < 1) ctx.globalAlpha = Math.max(0, alpha);
-  const pass = part => {
-    const oo = { ...o, horse: part === 'horse' && o.horse, rider: part === 'rider' && o.rider };
-    ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx; oy = dy; rearShape(hp, ell, oo); }
-    ink = false; ox = oy = 0; rearShape(hp, ell, oo);
-    if (oo.horse) { // details on top of the horse
-      const Hc = o.Hc, sw = [-1, 0, 1, 0][o.fr % 4];
-      if (Hc.spots) { hp(6, 30, 4, 5, Hc.spots); hp(24, 28, 5, 3, Hc.spots); }
-      hp(5, 30, 2, 6, Hc.light); hp(14, 28, 1, 12, shade(Hc.coat, 0.7));                                  // shine + crease
-      hp(28, 15, 2, 12, Hc.mane); hp(32, 10, 2, 3, Hc.mane);                                                // mane
-      hp(13 + sw, 26, 3, 5, Hc.mane); hp(13 + sw * 2, 31, 3, 11, Hc.mane); hp(13 + sw * 3, 42, 2, 4, Hc.mane); hp(14 + sw * 2, 31, 1, 11, shade(Hc.mane, 1.4)); // tail
-      if (o.blanket) { hp(9, 23, 16, 4, o.blanket); hp(9, 26, 16, 1, shade(o.blanket, 0.7)); }
-      line(flip ? x + (RW - 36) * sc : x + 36 * sc, y + 15 * sc, flip ? x + (RW - 24) * sc : x + 24 * sc, y + 19 * sc, '#2a1a10'); // reins
-    }
-  };
-  if (o.horse) pass('horse');
-  if (o.rider) pass('rider');
-  ctx.globalAlpha = 1;
-}
 
 // =====================================================================
 //  LEVEL: THE TRAIL — riding shotgun on Eliza's wagon
@@ -416,6 +341,7 @@ const HZ = 66, FOC = 104, GND = LH - HZ;                 // horizon line, focal 
 const RIDE = { lane: 0, cam: 0, dist: 0, v: 5, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 } };
 const projY = z => HZ + GND / z;
 const projX = (wx, z) => 160 + (wx - RIDE.cam) * FOC / z;
+const TRAIL_EASE = 1.35; // riders on the trail give you this much extra time vs. chapter 1 (on top of the difficulty)
 const RIDE_SPEED = { yellow: 4.2, deputy: 5, gunslinger: 6 }; // how fast the rocks come at you
 
 const NATIVE_RIDERS = [
@@ -477,7 +403,7 @@ const TRAIL = [
   ['R', 61.5, 'L', 1, 'b', 'settler', 1.4, 1], ['R', 62.5, 'R', 1, 'o', 'bandit', 1.0, 1],
   ['R', 64.0, 'L', 0, 'o', 'bandit', 1.0, 0], ['R', 64.5, 'R', 0, 'o', 'native', 1.0, 1],
   ['R', 66.5, 'L', 1, 'o', 'bandit', 0.95, 0], ['R', 67.0, 'R', 1, 'o', 'native', 0.95, 0],
-].sort((a, b) => a[1] - b[1]);
+].filter(e => e[1] <= 47.5).sort((a, b) => a[1] - b[1]); // ~48-second ride
 
 // ---------------- spawning ----------------
 function spawnDeco(z) {
@@ -488,54 +414,58 @@ function mkRider(e) {
   const [, , sideS, near, ty, who, win, wait] = e, side = sideS === 'L' ? -1 : 1;
   const spec = who === 'bandit' ? pick(OUTLAWS) : who === 'native' ? pick(NATIVE_RIDERS) : pick(TRAVELERS);
   const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : who === 'bandit' ? pick(['black', 'bay', 'gray']) : pick(['chestnut', 'palomino', 'gray'])];
-  const tx = near ? (side < 0 ? 2 : LW - RW * 2 - 2) : (side < 0 ? 62 : LW - RW - 62);
+  const tx = near ? (side < 0 ? 2 : LW - 66) : (side < 0 ? 66 : LW - 98);
   return { near: !!near, side, who, type: ty === 'o' ? 'outlaw' : 'bystander', spec, coat,
     blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : who === 'bandit' ? '#3a2a2a' : '#7a2a2a',
-    window: win * diff.mult, wait: !!wait, phase: 'in', age: 0, pt: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
-    x: side < 0 ? -RW * 2 - 10 : LW + 10, tx };
+    window: win * diff.mult * TRAIL_EASE, wait: !!wait, phase: 'in', age: 0, pt: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
+    x: side < 0 ? (near ? -80 : -40) : LW + (near ? 16 : 8), tx };
 }
 const slotBusy = r => RIDE.riders.some(o => o.near === r.near && o.side === r.side);
 const revealed = r => !r.wait || r.phase === 'show' || r.phase === 'out';
 
-// ---------------- rider geometry + drawing ----------------
-function riderGeom(r) {
-  const sc = r.near ? 2 : 1, base = r.near ? 166 : 104, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
-  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - RH * sc - bob, flip = r.side > 0;
-  const L = (lx, w = 0) => (flip ? hx + (RW - lx - w) * sc : hx + lx * sc); // local x -> screen x
-  return { sc, fr, hx, hy, flip, L };
+// ---------------- rider geometry + drawing (side view) ----------------
+function blitFlip(img, x, y, sc, flip, shear = 0) {
+  if (!flip) { blit(img, x, y, sc, shear); return; }
+  g.save(); g.translate(x * 2 + (GW + 2) * sc, 0); g.scale(-1, 1); blit(img, x, y, sc, shear); g.restore();
 }
-const riderBox = (r, G) => { const x1 = G.L(8, 17); return { x: x1, y: G.hy - 4 * G.sc, w: 17 * G.sc, h: 25 * G.sc }; };
+function riderGeom(r) {
+  const sc = r.near ? 2 : 1, base = r.near ? 154 : 100, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
+  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - 23 * sc - bob, flip = r.side > 0;
+  const sx = hx + (flip ? 18 : 14) * sc - 10 * sc, sy = hy + 7 * sc - 21 * sc;
+  return { sc, fr, hx, hy, flip, sx, sy };
+}
+const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 24 * G.sc });
 function riderPose(r) {
   if (!revealed(r)) return 'idle';
   if (r.type === 'bystander') return 'wave';
   return r.who === 'native' ? 'bow' : 'aim';
 }
 function drawRider(r) {
-  const G = riderGeom(r), sc = G.sc, o = { Hc: r.coat, sp: r.spec, fr: G.fr, blanket: r.blanket, horse: true, rider: true };
-  if (r.dead) { // the horse keeps galloping straight off the side of the screen; the rider tumbles off behind
-    const t = r.deadTime;
-    drawRear({ ...o, rider: false }, G.hx + Math.round(r.side * t * 85 * sc), G.hy, sc, G.flip);
-    const fy = G.hy + Math.round(-14 * sc * t + 260 * sc * t * t), fx = G.hx - Math.round(r.side * t * 16 * sc);
-    if (fy < LH + 10) drawRear({ ...o, horse: false, pose: 'hit', turned: true }, fx, fy, sc, G.flip, 1 - Math.max(0, t - 0.6) * 2);
-    if (t > 0.35 && t < 0.9) for (let i = 0; i < 3; i++) R(G.L(12) + (i - 1) * 6 * sc, G.hy + 48 * sc - Math.round((t - 0.35) * 20), 4 * sc, 2 * sc, 'rgba(200,170,120,0.6)'); // dust
+  const G = riderGeom(r), sc = G.sc;
+  if (r.dead) { // the horse gallops straight off the side of the screen, the rider tumbles off the back
+    const t = r.deadTime, dir = r.side;
+    horse(G.hx + Math.round(dir * t * 90 * sc), G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
+    const fx = G.sx - Math.round(dir * t * 20 * sc), fy = G.sy + Math.round(-30 * sc * t + 220 * sc * t * t);
+    if (fy < LH + 10) blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(-dir * Math.min(1, t * 3) * 8));
+    if (t > 0.4 && t < 1) for (let i = 0; i < 3; i++) R(G.sx + (i * 6 - 2) * sc, G.hy + 22 * sc - Math.round((t - 0.4) * 16), 4 * sc, 2 * sc, 'rgba(200,170,120,0.6)'); // dust
     return;
   }
-  const pose = riderPose(r);
-  drawRear({ ...o, pose, turned: pose !== 'idle' }, G.hx, G.hy, sc, G.flip);
+  blitFlip(getSprite({ ...r.spec, pose: riderPose(r) }), G.sx, G.sy, sc, G.flip);
+  horse(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
   if (r.type === 'outlaw' && r.phase === 'show') {
-    const p = Math.max(0, 1 - r.age / r.window), bx = G.L(8, 17), bw = 17 * sc, by = G.hy - 8 * sc - 2;
+    const p = Math.max(0, 1 - r.age / r.window), bx = G.sx + 2 * sc, bw = 16 * sc, by = G.sy - 5;
     R(bx - 1, by - 1, bw + 2, 4, INK); R(bx, by, Math.round(bw * p), 2, p > 0.4 ? '#ffd23f' : '#ff3b30');
     if (r.age > r.window * 0.6 && Math.floor(r.age * 12) % 2) { // about to fire!
-      const mx = r.who === 'native' ? 35 : 36;
-      R(G.L(mx, 3), G.hy + 7 * sc, 3 * sc, 3 * sc, '#fff36b');
+      const gx = r.who === 'native' ? 17 : 19, gy = r.who === 'native' ? 12 : 11;
+      R(G.flip ? G.sx + (20 - gx - 2) * sc : G.sx + gx * sc, G.sy + gy * sc, 2 * sc, 3 * sc, '#fff36b');
     }
   }
 }
 function knockRider(r) {
   const G = riderGeom(r), sc = G.sc, d = r.side < 0 ? 1 : -1;
-  if (r.spec.hat && r.spec.hat !== 'none') effects.push({ phys: true, hat: true, combo: 0, base: 250, spec: { ...r.spec, hatOnly: true }, sc, x: G.L(7, 18), y: G.hy - 6 * sc,
+  if (r.spec.hat && r.spec.hat !== 'none') effects.push({ phys: true, hat: true, combo: 0, base: 250, spec: { ...r.spec, hatOnly: true }, sc, x: G.sx, y: G.sy,
     vx: d * (20 + Math.random() * 25) * sc, vy: -110 * sc, life: 999, flashT: 0 });
-  if (r.who === 'bandit') effects.push({ phys: true, gun: true, sc, x: G.L(32), y: G.hy + 7 * sc, vx: d * 30, vy: -50, life: 0.9 });
+  if (r.who === 'bandit') effects.push({ phys: true, gun: true, sc, x: G.sx + 16 * sc, y: G.sy + 13 * sc, vx: d * 30, vy: -50, life: 0.9 });
 }
 
 // ---------------- obstacles + scenery drawing ----------------
@@ -695,7 +625,7 @@ RUNS.trail = {
           if (r.type === 'outlaw') { riderFires(r); if (state !== 'play') return; }
           else r.phase = 'out';
         }
-      } else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -RW * 2 - 10 || r.x > LW + 20) r.gone = true; }
+      } else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
     }
     RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.6));
     for (const o of RIDE.obs) if (!o.checked && o.z <= 1.35) {
@@ -720,7 +650,7 @@ RUNS.trail = {
       if (r.type === 'outlaw' && revealed(r)) {
         hits++; S.n.outlaw++;
         const bonus = r.phase === 'show' ? Math.round(100 * Math.max(0, 1 - r.age / r.window)) : 100;
-        addScore(100 + bonus, 'outlaw'); popText(G.L(16), G.hy, '+' + (100 + bonus));
+        addScore(100 + bonus, 'outlaw'); popText(G.sx + 10 * G.sc, G.sy, '+' + (100 + bonus));
       } else hurt('bystander');
       return true;
     }
