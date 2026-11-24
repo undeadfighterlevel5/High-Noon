@@ -4,11 +4,11 @@
 // =====================================================================
 const W = 960, H = 540, SW = 160, CW = W + SW * 2, P = 3, LW = 320, LH = 180, INK = '#1b1410';
 
-// mult = outlaw timer multiplier, hatG = hat gravity, hits = shots you can take per heart
+// mult = outlaw timer multiplier, hatG = hat gravity, hits = shots you can take per heart, crashes = wagon bumps per heart
 const DIFFICULTY = {
-  yellow:     { key: 'yellow',     name: 'YELLOW BELLY', mult: 2.2,  lives: 5, draw: 1.4,  hatG: 190, hits: 2 },
-  deputy:     { key: 'deputy',     name: 'DEPUTY',       mult: 1.35, lives: 5, draw: 0.9,  hatG: 260, hits: 1 },
-  gunslinger: { key: 'gunslinger', name: 'GUNSLINGER',   mult: 0.8,  lives: 3, draw: 0.55, hatG: 260, hits: 1 },
+  yellow:     { key: 'yellow',     name: 'YELLOW BELLY', mult: 2.2,  lives: 5, draw: 1.4,  hatG: 190, hits: 2, crashes: 3 },
+  deputy:     { key: 'deputy',     name: 'DEPUTY',       mult: 1.35, lives: 5, draw: 0.9,  hatG: 260, hits: 1, crashes: 2 },
+  gunslinger: { key: 'gunslinger', name: 'GUNSLINGER',   mult: 0.8,  lives: 3, draw: 0.55, hatG: 260, hits: 1, crashes: 1 },
 };
 
 // ---------------- UI SPRITES ----------------
@@ -51,7 +51,7 @@ try { for (const k in bests) bests[k] = +(localStorage.getItem('hns_best_' + k) 
 const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 } };
 const AMMO_BOX = { x: W + 11, y: H - 156, w: 138, h: 138 };
 const PAUSE_BTN = { x: W + 53, y: 84, w: 54, h: 54 }, SKIP_BTN = { x: W - 174, y: 12, w: 162, h: 54 };
-const CH2_TEST_BTN = { x: W - 246, y: 12, w: 234, h: 54 }; // TEST ONLY
+const CONT_BTN = { x: W / 2 - 140, y: 474, w: 280, h: 54 };
 const TITLE_BTN = { x: W - 186, y: H - 66, w: 174, h: 54 }, QUIT_BTN = { x: W / 2 - 100, y: 336, w: 200, h: 54 };
 let touchMode = false, lastTap = 0;
 const newStats = () => ({ n: { outlaw: 0, hat: 0, bottle: 0, obj: 0 }, pts: { outlaw: 0, hat: 0, bottle: 0, obj: 0, duel: 0 } });
@@ -346,7 +346,7 @@ function wound(a) { // Yellow Belly: first bullet just grazes you
   if (inDuel) { state = 'duelWait'; duelT = 0; drawAt = 0.7 + Math.random() * 0.8; }
 }
 function hurt(kind, a) {
-  if (diff.hits > 1 && !wounded && ['shot', 'duel', 'arrow', 'crash', 'tnt'].includes(kind)) return wound(a);
+  if (diff.hits > 1 && !wounded && ['shot', 'duel', 'arrow', 'tnt'].includes(kind)) return wound(a);
   wounded = false; lives--; lastHurt = kind; flash = 1; shake = 0.4; actives = [];
   epitaph = kind === 'bystander' ? pick(WISDOM) : pick(EPITAPHS[kind]);
   kind === 'bystander' ? sfx.oops() : sfx.hurt();
@@ -567,7 +567,7 @@ function buildGrid(sp) {
     case 'hit': F(2, 10, 2, 3, arm); F(1, 8, 2, 2, arm); F(0, 7, 2, 1, skin); F(12, 10, 2, 3, arm); F(13, 8, 2, 2, arm); F(15, 7, 2, 1, skin); break;
     case 'wave': idleL(); F(12, 6, 2, 6, arm); F(12, 4, 2, 2, skin); break;
     case 'drink': idleL(); F(12, 6, 2, 6, arm); F(12, 4, 2, 2, skin); F(12, 1, 2, 3, '#3a7a3a'); F(13, 0, 1, 1, '#8a6a3a'); F(12, 2, 1, 1, '#7fd08a'); break;
-    case 'cower': F(2, 12, 2, 5, arm); F(12, 12, 2, 5, arm); F(4, 9, 8, 2, arm); F(5, 8, 2, 1, skin); F(9, 8, 2, 1, skin); break;
+    case 'cower': F(2, 12, 2, 5, arm); F(12, 12, 2, 5, arm); F(4, 15, 8, 2, arm); F(5, 14, 2, 1, skin); F(9, 14, 2, 1, skin); break; // hands clutched at his chest, face showing
     default: idleL(); idleR();
   }
   return G;
@@ -1099,8 +1099,8 @@ function drawHUD() { // drawn in game coords: x < 0 is the left panel, x > W is 
   panel(LX, 108, PW, 84, hb ? '#9a6236' : '#5a3418');
   spriteUI(HAT_ICON, HAT_PAL, LC - 21, 124 - (hb ? 3 : 0), 3);
   text(String(hatsShot), LC, 154, 24, hb ? '#ffd23f' : '#ffffff', 'center');
-  const head = inDuel ? null : run ? run.label : (LEVELS[levelIdx].label || 'LEVEL ' + (levelIdx + 1));
-  const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)];
+  const head = inDuel ? null : run ? run.label : ('label' in LEVELS[levelIdx] ? LEVELS[levelIdx].label : 'LEVEL ' + (levelIdx + 1));
+  const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)].filter(Boolean);
   panel(LX, 204, PW, 36 + all.length * 24);
   all.forEach((l, i) => text(l, LC, 224 + i * 24, 16, head && i === 0 ? '#f3d18b' : '#ffffff', 'center'));
   const d = diff.lives, hx0 = Math.round(RC - (d * 27 - 6) / 2);
@@ -1220,7 +1220,8 @@ function drawTally() {
     text('BULLETS FIRED ' + shots, 200, 354, 16, '#f3d18b'); text('ACCURACY ' + acc + '%', 200, 386, 16, '#f3d18b');
     text('PIANO NOTES PLAYED ' + pianoIdx, 200, 418, 16, '#f3d18b');
     text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 458, 16, '#ffd23f', 'center');
-    if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 490, 16, '#ffffff', 'center');
+    if (SCENES.ch2Room) { smallBtn(CONT_BTN, 'CONTINUE >'); smallBtn(TITLE_BTN, 'TITLE'); }
+    else if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 490, 16, '#ffffff', 'center');
   }
 }
 function draw() {
@@ -1253,7 +1254,6 @@ function draw() {
     if (blink) text('CHOOSE YOUR BADGE', W / 2, 296, 16, '#ffffff', 'center');
     button(BTN.yellow, 'YELLOW BELLY'); button(BTN.deputy, 'DEPUTY'); button(BTN.gunslinger, 'GUNSLINGER');
     for (const k in BTN) if (bests[k]) text('BEST ' + bests[k], BTN[k].x + BTN[k].w / 2, 440, 16, '#ffd23f', 'center');
-    if (SCENES.ch2Room) smallBtn(CH2_TEST_BTN, 'CHAPTER 2 >'); // TEST ONLY: jump straight to chapter 2
   }
   if (state === 'scene' && scene.ui) scene.ui();
   if (state === 'cut') drawDialog();
@@ -1261,7 +1261,7 @@ function draw() {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
     if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
     else if (run) { text(run.title, W / 2, 194, 32, '#ffd23f', 'center'); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
-    else { text(LEVELS[levelIdx].label || 'LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
+    else if ('label' in LEVELS[levelIdx]) { text(LEVELS[levelIdx].name, W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].hint || '', W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
   }
   if (state === 'clear' && clearInfo) {
     const ci = clearInfo;
@@ -1308,12 +1308,16 @@ cv.addEventListener('pointerdown', e => {
   audio(); mouse = toGame(e); touchMode = e.pointerType !== 'mouse'; lastTap = performance.now();
   if (paused) { if (inBox(mouse.x, mouse.y, QUIT_BTN)) toTitle(); else paused = false; return; }
   if (canPause() && inBox(mouse.x, mouse.y, PAUSE_BTN)) { paused = true; return; }
-  if (state === 'title' && SCENES.ch2Room && inBox(mouse.x, mouse.y, CH2_TEST_BTN)) { startScene('ch2Room'); return; } // TEST ONLY
   if (state === 'scene') { if (scene.tap) scene.tap(mouse.x, mouse.y); return; }
   if (state === 'title') { for (const k in BTN) if (inBox(mouse.x, mouse.y, BTN[k])) { startGame(k); break; } return; }
   if (state === 'cut') { if (inBox(mouse.x, mouse.y, SKIP_BTN)) nextStep(); else advanceCut(); return; }
   if (state === 'end') { state = 'tally'; tallyT = 0; tallyK = 0; sfx.clear(); return; }
-  if (state === 'tally') { if (tallyT < 0.45 * 7) tallyT = 0.45 * 8; else toTitle(); return; }
+  if (state === 'tally') {
+    if (tallyT < 0.45 * 7) { tallyT = 0.45 * 8; return; }
+    if (!SCENES.ch2Room) { toTitle(); return; }
+    if (inBox(mouse.x, mouse.y, CONT_BTN)) { sfx.blip(); startScene('ch2Room'); } else if (inBox(mouse.x, mouse.y, TITLE_BTN)) toTitle();
+    return;
+  }
   if (state === 'over') { if (inBox(mouse.x, mouse.y, TITLE_BTN)) { toTitle(); return; } lives = diff.lives; score = 0; levelStartScore = 0; S0 = newStats(); retry(); return; }
   if (state === 'hurt') { if (timer < 3.7) retry(); return; }
   if (!SHOOTABLE.includes(state)) return;

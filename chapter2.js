@@ -1,13 +1,13 @@
 // =====================================================================
 //  HIGH NOON — CHAPTER 2: THE CRYSTAL CANYON RUN
-//  Loaded after engine.js and chapter1.js. For now it's only reachable
-//  from the TEST button on the main title screen.
+//  Loaded after engine.js and chapter1.js. Reached from the CONTINUE
+//  button on chapter 1's final tally.
 //
 //  Flow:  ch2Room (night, fade to black) -> ch2Title (breakfast + badges)
 //         -> ch2Saloon (Eliza walks in) -> THE TRAIL (wagon race)
 //         -> ch2Cabin (sunset, keep watch) -> ch2Night (fade to black)
 //         -> ch2Dawn (surrounded!) -> THE CABIN (siege from the roof)
-//         -> ch2Lake (riding on along the lake) -> ch2End
+//         -> ch2Lake (Eliza takes the reins) -> ch2Rest (fade out) -> ch2End (final tally)
 // =====================================================================
 
 // ---------------- CAST ----------------
@@ -69,7 +69,7 @@ function narrBox(txt, n) { // narrator box in the dialog style
 // =====================================================================
 //  SCENE 1: UPSTAIRS ROOM AT THE SALOON (night -> lamp out -> black)
 // =====================================================================
-const ROOM_TEXT = 'AFTER A LONG DAY AND A HEARTY STEAK AND POTATO DINNER, THE NEW SHERIFF TAKES A LONG REST.';
+const ROOM_TEXT = 'AFTER A LONG DAY AND A HEARTY STEAK AND POTATO DINNER, YOU TAKE A LONG REST.';
 const QUILT = ['#b04a3a', '#d8b060', '#4a6a8a', '#e8e0cc', '#6a8a4a'];
 function sleeper() {
   R(160, 79, 24, 10, '#f4efe0'); R(160, 79, 24, 1, '#ffffff'); R(160, 88, 24, 1, '#c8c0b0');
@@ -141,6 +141,7 @@ SCENES.ch2Room = {
   },
   goOut() { if (this.phase === 'in') { this.phase = 'out'; this.outT = 0; } },
   tap() {
+    if (this.t < 0.4) return; // ignore the tap that pressed CONTINUE
     if (this.phase === 'in') { if (this.shown() < ROOM_TEXT.length) this.textT = 99; else this.goOut(); }
     else this.outT = Math.max(this.outT, 2.6);
   },
@@ -336,15 +337,18 @@ function blitFlip(img, x, y, sc, flip, shear = 0) {
 
 // =====================================================================
 //  LEVEL: THE TRAIL — a breakneck wagon race to Aunt Mae's cabin.
-//  Pseudo-3D dirt road with curves (you drift through them), bridges,
-//  rocks, logs, broken planks, and a handful of riders who try their luck.
-//  World x: lanes at -1, 0, 1. z = distance ahead (1 = under the horses' noses).
+//  Pseudo-3D dirt road with curves, bridges, rocks, logs, broken planks,
+//  and a handful of riders who try their luck. Hold an arrow to steer;
+//  every bend flings the wagon toward the outside of the turn.
+//  World x: road runs from -1.5 to 1.5. z = distance ahead (1 = under the horses' noses).
 // =====================================================================
 const HZ = 66, FOC = 104, GND = LH - HZ, FAR = 24, SPAWN = 22;
 const RACE_V = { yellow: 9, deputy: 11, gunslinger: 13 }; // ridiculous speed
 const MPH_PER_V = 6.8;                                      // speedometer: 13 = 88 MPH
 const TRAIL_EASE = 1.35;                                    // riders give you this much extra time vs. chapter 1
 const RIDE = {};
+// free steering: hold an arrow and the team pulls that way; curves fling the wagon toward the outside
+const STEER_ACC = 11, STEER_DRAG = 4, FLING = 0.6, ROAD_EDGE = 1.5, WAGON_HALF = 0.35;
 const NATIVE_RIDERS = [
   { hat: 'feather', hatC: '#c0302b', featherC: '#f4efe0', skin: '#b8784a', hair: '#1b1410', hairLong: true, shirt: '#c8a070', vest: '#8a5a30', pants: '#8a6a40', boots: '#6a4a2a', face: 'plain' },
   { hat: 'feather', hatC: '#2a6a8a', featherC: '#3b2210', skin: '#a86a40', hair: '#1b1410', hairLong: true, shirt: '#b89060', pants: '#6a4a2a', boots: '#5a3a1a', face: 'plain' },
@@ -366,7 +370,8 @@ const RACE = [
   ['curve', 9.0, 3, -0.045], ['log', 9.8, 0, 1],
   ['bottles', 10.5, 'L'],
   ['bridge', 12.0, 3.2], ['hole', 12.6, 0], ['hole', 13.6, -1], ['hole', 14.4, 1],
-  ['R', 16.5, 'R', 1, 'native', 1.6],
+  ['R', 14.0, 'L', 1, 'native', 1.6], // crosses the first river
+  ['R', 18.5, 'R', 0, 'native', 1.6],
   ['rock', 17.0, 0],
   ['curve', 18.0, 4, 0.045], ['rock', 18.8, 1], ['log', 19.8, -1, 0], ['rock', 21.0, -1],
   ['tumble', 21.5, -1],
@@ -375,7 +380,7 @@ const RACE = [
   ['curve', 24.5, 3, -0.05], ['rock', 25.2, -1], ['rock', 26.0, 0],
   ['bird', 26.5, -1], ['bird', 27.0, -1],
   ['bridge', 28.5, 3.5], ['hole', 29.0, 1], ['hole', 29.8, 0], ['hole', 30.6, -1], ['hole', 31.3, 1],
-  ['R', 33.0, 'R', 0, 'native', 1.5],
+  ['R', 30.8, 'R', 1, 'native', 1.5], // crosses the second river
   ['curve', 33.5, 4, 0.04], ['log', 34.5, -1, 0], ['rock', 35.5, 1], ['rock', 36.3, 0],
   ['bottles', 36.5, 'R'],
   ['R', 37.5, 'L', 1, 'bandit', 1.4],
@@ -408,12 +413,44 @@ function mkRider(e) {
   const spec = who === 'bandit' ? pick(OUTLAWS) : pick(NATIVE_RIDERS);
   const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : pick(['black', 'bay', 'gray'])];
   const tx = near ? (side < 0 ? 2 : LW - 66) : (side < 0 ? 66 : LW - 98);
-  return { near: !!near, side, who, type: 'outlaw', spec, coat, blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : '#3a2a2a',
+  const r = { near: !!near, side, who, type: 'outlaw', spec, coat, blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : '#3a2a2a',
     window: win * diff.mult * TRAIL_EASE, phase: 'in', age: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
     x: side < 0 ? (near ? -80 : -40) : LW + (near ? 16 : 8), tx };
+  r.dolphin = onRiver(r); // what they're riding is decided when they show up
+  return r;
 }
 const slotBusy = r => RIDE.riders.some(o => o.near === r.near && o.side === r.side);
 const revealed = r => true; // everyone on this trail is hostile
+
+// ---------------- dolphin (for riders crossing the river) ----------------
+// same 32x24 footprint as the horse so the rider sits in the same saddle spot
+function dolphin(x, y, sc, fr, flip, blanket) {
+  let ox = 0, oy = 0, ink = false;
+  const dp = (lx, ly, w, h, c) => R((flip ? x + (32 - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c);
+  const C = '#5f8fb4', D = '#3e6a8e', B = '#d8e6ee', arc = [0, 1, 2, 1][fr % 4];
+  const shape = () => {
+    dp(0, 6 - arc, 4, 3, C); dp(1, 9 - arc, 3, 3, C); dp(3, 8 - arc, 3, 2, C);                // tail flukes
+    dp(5, 9, 4, 4, C); dp(8, 8, 18, 8, C); dp(10, 7, 14, 1, C); dp(10, 16, 14, 1, C);         // body
+    dp(26, 9, 3, 6, C); dp(29, 11, 3, 3, C);                                                  // head + snout
+    dp(15, 3, 3, 5, C); dp(14, 6, 2, 2, C);                                                   // dorsal fin
+    dp(19, 15, 4, 3, C);                                                                      // flipper
+  };
+  ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx; oy = dy; shape(); }
+  ink = false; ox = oy = 0; shape();
+  dp(9, 13, 18, 3, B); dp(27, 13, 4, 2, B);                                                   // pale belly
+  dp(9, 8, 16, 1, D); dp(26, 9, 3, 1, D);                                                     // shading along the back
+  dp(27, 10, 1, 1, INK); dp(28, 13, 3, 1, D);                                                 // eye + smile
+  if (blanket) { dp(12, 7, 9, 3, blanket); dp(12, 9, 9, 1, shade(blanket, 0.7)); }
+  const wy = y + 17 * sc, f = Math.floor(clock * 10) % 2;                                     // bow wave + splashes
+  R(x + 2 * sc, wy, 28 * sc, 2 * sc, 'rgba(230,245,255,0.85)');
+  for (let i = 0; i < 4; i++) R((flip ? x + (32 - 30 - i * 2) * sc : x + (30 + i * 2) * sc), wy - (i % 2 + f) * sc, sc, sc, '#e8f4ff');
+  for (let i = 0; i < 3; i++) R((flip ? x + (32 - 2 + i * 2) * sc : x + (2 - i * 2) * sc), wy - (1 + ((i + f) % 2)) * sc, sc, sc, '#e8f4ff');
+}
+const riderZ = r => (r.near ? 1.6 : 3.4);
+const onRiver = r => onBridge(riderZ(r)); // over the bridge, the roadside is river
+// a dolphin heads off before the riverbank arrives; a horse peels away before it hits the water
+const wrongGround = r => (r.dolphin ? !onBridge(riderZ(r) + 2.5) : onBridge(riderZ(r) + 2.5));
+function mount(r, x, y, sc, fr, flip) { if (r.dolphin) dolphin(x, y, sc, fr, flip, r.blanket); else horse(x, y, sc, fr, r.coat, flip, r.blanket); }
 
 // ---------------- riders (side view) ----------------
 function riderGeom(r) {
@@ -425,15 +462,15 @@ function riderGeom(r) {
 const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 24 * G.sc });
 function drawRider(r) {
   const G = riderGeom(r), sc = G.sc;
-  if (r.dead) { // the horse gallops straight off the side of the screen, the rider tumbles off the back
+  if (r.dead) { // the mount runs straight off the side of the screen, the rider tumbles off the back
     const t = r.deadTime, dir = r.side;
-    horse(G.hx + Math.round(dir * t * 90 * sc), G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
+    mount(r, G.hx + Math.round(dir * t * 90 * sc), G.hy, sc, G.fr, G.flip);
     const fx = G.sx - Math.round(dir * t * 20 * sc), fy = G.sy + Math.round(-30 * sc * t + 220 * sc * t * t);
     if (fy < LH + 10) blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(-dir * Math.min(1, t * 3) * 8));
     return;
   }
-  blitFlip(getSprite({ ...r.spec, pose: r.who === 'native' ? 'bow' : 'aim' }), G.sx, G.sy, sc, G.flip);
-  horse(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
+  blitFlip(getSprite({ ...r.spec, pose: r.leaving ? 'idle' : r.who === 'native' ? 'bow' : 'aim' }), G.sx, G.sy, sc, G.flip);
+  mount(r, G.hx, G.hy, sc, G.fr, G.flip);
   if (r.phase === 'show') {
     const p = Math.max(0, 1 - r.age / r.window), bx = G.sx + 2 * sc, bw = 16 * sc, by = G.sy - 5;
     R(bx - 1, by - 1, bw + 2, 4, INK); R(bx, by, Math.round(bw * p), 2, p > 0.4 ? '#ffd23f' : '#ff3b30');
@@ -538,7 +575,7 @@ function horseRear(cx, by, Hc, swish, lean) {
   const tx = o(by - 12) + swish; R(tx - 3, by - 24, 6, 6, Hc.mane); R(tx - 2, by - 18, 5, 18, Hc.mane); R(tx - 1, by - 18, 1, 18, shade(Hc.mane, 1.4));
 }
 function drawTeam() {
-  const b = Math.floor(clock * 15) % 2, sw = Math.round(Math.sin(clock * 6) * 2), L = RIDE.lean, slide = Math.round(-L * 8);
+  const b = Math.floor(clock * 15) % 2, sw = Math.round(Math.sin(clock * 6) * 2), L = RIDE.lean, slide = Math.round(-L * 8 + Math.max(-1, Math.min(1, RIDE.vx / 2)) * 6);
   horseRear(132 + slide, 178 + b, HORSE_COATS.bay, sw, L); horseRear(188 + slide, 178 + (1 - b), HORSE_COATS.chestnut, -sw, L);
   const tip = Math.round(L * 62 * 0.14);
   line(52, 180, 126 + slide + tip * 0.7, 137 + b, '#2a1a10'); line(56, 180, 182 + slide + tip * 0.7, 137 + (1 - b), '#2a1a10');
@@ -549,16 +586,32 @@ function drawTeam() {
 
 // ---------------- driving ----------------
 const STEER = { l: { x: W - 210, y: H - 108, w: 96, h: 96 }, r: { x: W - 108, y: H - 108, w: 96, h: 96 } };
-function steer(d) {
-  RIDE.press[d < 0 ? 'l' : 'r'] = 0.15;
-  const n = Math.max(-1, Math.min(1, RIDE.lane + d));
-  if (n === RIDE.lane) { sfx.empty(); return; }
-  RIDE.lane = n; noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08); // crack of the reins
+function holdSteer(k, on, id) { // k = 'l' | 'r'
+  if (on && !RIDE.hold[k]) { noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08); } // crack of the reins
+  RIDE.hold[k] = on; if (on) RIDE.holdId[k] = id;
 }
+// let go of an on-screen arrow (only the finger that pressed it) or an arrow key
+addEventListener('pointerdown', e => { RIDE.lastPointer = e.pointerId; }, true); // runs before the game's own handler
+cv.addEventListener('pointerup', e => { for (const k of ['l', 'r']) if (RIDE.holdId && RIDE.holdId[k] === e.pointerId) RIDE.hold[k] = false; });
+cv.addEventListener('pointercancel', () => { if (RIDE.hold) RIDE.hold.l = RIDE.hold.r = false; });
+addEventListener('keyup', e => {
+  if (!RIDE.hold) return; const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') RIDE.hold.l = false;
+  if (k === 'arrowright' || k === 'd') RIDE.hold.r = false;
+});
+addEventListener('blur', () => { if (RIDE.hold) RIDE.hold.l = RIDE.hold.r = false; });
+const hitsWagon = o => { // world-x overlap between an obstacle and the wagon
+  const L = Math.min(...o.lanes), Rr = Math.max(...o.lanes), half = o.kind === 'rock' ? 0.31 : 0.5, pad = o.kind === 'log' ? 0.55 : half;
+  return RIDE.px + WAGON_HALF > L - pad && RIDE.px - WAGON_HALF < Rr + pad;
+};
+// obstacles: the wagon can take a few bumps (YELLOW BELLY 3, DEPUTY 2, GUNSLINGER 1) before it costs you a heart
 function crash() {
   shake = Math.max(shake, 0.7); sfx.thud(); noise(0.4, 0.6, 700);
   burst(160, 150, 18, ['#9a846e', '#7a6652', '#c8a070', '#5a3418'], 110);
-  hurt('crash', null);
+  RIDE.bumps++;
+  const left = (diff.crashes || 1) - RIDE.bumps;
+  if (left > 0) { woundT = 0.8; popText(160, 84, left === 1 ? 'WAGON DAMAGED! ONE MORE HIT...' : 'WAGON DAMAGED! ' + left + ' HITS LEFT'); return; }
+  RIDE.bumps = 0; hurt('crash', null);
 }
 function riderFires(r) {
   r.phase = 'out';
@@ -566,20 +619,19 @@ function riderFires(r) {
   hurt(r.who === 'native' ? 'arrow' : 'shot', null);
 }
 RUNS.trail = {
-  label: 'CH. 2', name: 'THE TRAIL', title: 'THE TRAIL', hint: 'ARROWS STEER - DRIFT THE CURVES!', tune: 'trail',
+  label: null, name: 'THE TRAIL', title: 'THE TRAIL', hint: 'HOLD THE ARROWS TO STEER!', tune: 'trail',
   hurtText: {
     shot: { title: 'BUSHWHACKED!', reason: 'A BANDIT GOT YOU FIRST.', color: '#ff3b30' },
     arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE WAS QUICKER ON THE DRAW.', color: '#ff3b30' },
     crash: { title: 'WAGON WRECK!', reason: 'KEEP AN EYE ON THE TRAIL.', color: '#ffb347' },
   },
   reset() {
-    Object.assign(RIDE, { lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
-      curves: [], bridges: [], signs: [], dust: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 }, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
+    Object.assign(RIDE, { px: 0, vx: 0, hold: { l: false, r: false }, holdId: { l: null, r: null }, edgeT: 0, bumps: 0, lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
+      curves: [], bridges: [], signs: [], dust: [], ei: 0, decoT: 0, poleAcc: 0, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
     for (let z = 1.3; z < SPAWN; z += 0.45) spawnDeco(z);
     for (let z = 1.5; z < SPAWN; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
   },
   tick(dt) { // the world rolls by (also during the intro / clear screens)
-    RIDE.cam += (RIDE.lane - RIDE.cam) * Math.min(1, dt * 10);
     if (RIDE.boost) { const vt = 88 / MPH_PER_V + 0.05; RIDE.v = Math.min(Math.max(RIDE.v, vt), RIDE.v + dt * 3); }
     const dz = RIDE.v * dt; RIDE.dist += dz;
     for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles, RIDE.curves, RIDE.bridges, RIDE.signs]) for (const o of list) o.z -= dz;
@@ -591,9 +643,16 @@ RUNS.trail = {
     RIDE.curves = RIDE.curves.filter(c => c.z + c.len > -1); RIDE.bridges = RIDE.bridges.filter(b => b.z + b.len > 0);
     for (const b of RIDE.birds) { b.x += b.vx * dt; if (b.dead) { b.vy += 300 * dt; b.y += b.vy * dt; } }
     RIDE.birds = RIDE.birds.filter(b => b.x > -20 && b.x < LW + 20 && b.y < LH + 10);
-    RIDE.press.l = Math.max(0, RIDE.press.l - dt); RIDE.press.r = Math.max(0, RIDE.press.r - dt);
-    // drifting: the wagon swings out and the horses lean into the bend
-    const kNear = curvAt(1.5);
+    // steering + the curve flinging the wagon toward the outside of the bend
+    const kNear = curvAt(1.5), steerIn = (RIDE.hold.r ? 1 : 0) - (RIDE.hold.l ? 1 : 0);
+    if (state === 'play') RIDE.vx += (steerIn * STEER_ACC - kNear * RIDE.v * RIDE.v * FLING) * dt;
+    RIDE.vx *= Math.max(0, 1 - STEER_DRAG * dt); RIDE.px += RIDE.vx * dt;
+    if (Math.abs(RIDE.px) > ROAD_EDGE) { // bouncing along the edge of the road
+      RIDE.px = Math.sign(RIDE.px) * ROAD_EDGE; RIDE.vx *= -0.3;
+      RIDE.edgeT -= dt; if (RIDE.edgeT <= 0) { RIDE.edgeT = 0.18; shake = Math.max(shake, 0.12); noise(0.1, 0.25, 600); }
+    }
+    RIDE.lane = Math.max(-1, Math.min(1, Math.round(RIDE.px)));
+    RIDE.cam = RIDE.px;
     RIDE.lean += (Math.max(-1, Math.min(1, kNear / 0.04)) - RIDE.lean) * Math.min(1, dt * 5);
     RIDE.sky -= kNear * RIDE.v * dt * 160;
     if (Math.abs(RIDE.lean) > 0.35) {
@@ -622,22 +681,25 @@ RUNS.trail = {
     if (RIDE.boost && !RIDE.hit88 && RIDE.v * MPH_PER_V >= 88) { // great Scott!
       RIDE.hit88 = true; popText(160, 70, '88 MPH!'); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone('square', f, f, 0.1, 0.06), i * 70));
     }
-    const kNear = curvAt(1.5); // drift bonus: hug the inside lane through a bend
-    if (Math.abs(kNear) > 0.015 && Math.sign(kNear) === RIDE.lane) {
+    const kNear = curvAt(1.5); // drift bonus: hug the inside of a bend while it's flinging you out
+    if (Math.abs(kNear) > 0.015 && Math.sign(kNear) * RIDE.px > 0.6) {
       RIDE.driftT += dt; if (RIDE.driftT >= 0.5) { RIDE.driftT -= 0.5; addScore(50, 'obj'); popText(160, 120, 'DRIFT +50'); }
     } else RIDE.driftT = 0;
     RIDE.pending = RIDE.pending.filter(e => { const r = mkRider(e); if (slotBusy(r)) return true; RIDE.riders.push(r); sfx.cock(); return false; });
     for (const r of RIDE.riders) {
       if (r.dead) { r.deadTime += dt; continue; }
+      if (!r.leaving && r.phase !== 'out' && wrongGround(r)) { // the riverbank (or the river) is coming: peel away
+        r.leaving = true; r.phase = 'out'; if (r.dolphin) noise(0.3, 0.15, 2500);
+      }
       const spd = r.near ? 140 : 70;
       if (r.phase === 'in') { r.x += Math.sign(r.tx - r.x) * spd * dt; if (Math.abs(r.tx - r.x) < spd * dt) { r.x = r.tx; r.phase = 'show'; r.age = 0; } }
       else if (r.phase === 'show') { r.age += dt; if (r.age >= r.window) { riderFires(r); if (state !== 'play') return; } }
-      else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
+      else if (r.phase === 'out') { r.x += r.side * (r.leaving ? 170 : 90) * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
     }
     RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.6));
     for (const o of RIDE.obs) if (!o.checked && o.z <= 1.35) {
       o.checked = true;
-      if (o.lanes.includes(RIDE.lane)) { o.z = 0; crash(); if (state !== 'play') return; }
+      if (hitsWagon(o)) { o.z = 0; crash(); if (state !== 'play') return; }
     }
   },
   done() {
@@ -669,18 +731,15 @@ RUNS.trail = {
   },
   draw() {
     buildShift();
-    // sky, sun, clouds
     ['#5f9ad6', '#82b4e2', '#abcfee', '#d8e4e8', '#eedcb0'].forEach((c, i) => R(0, i * 14, LW, 14, c));
     disc(262, 18, 9, '#fff6c8'); disc(262, 18, 7, '#fffbe8');
     for (let i = 0; i < 3; i++) { const cx = (((i * 130 + 40 - clock * 6 + RIDE.sky * 0.3) % 400) + 400) % 400 - 40; R(cx, 14 + i * 9, 30, 4, '#f4f8fc'); R(cx + 6, 11 + i * 9, 16, 3, '#f4f8fc'); }
-    // mountains + mesas swing past as you drift through the bends
     const p1 = -RIDE.cam * 5 + RIDE.sky * 0.5, p2 = -RIDE.cam * 10 + RIDE.sky;
     for (let x = 0; x < LW; x += 2) { const wx = x - p1, h = 10 + Math.round(6 * Math.sin(wx * 0.045) + 4 * Math.sin(wx * 0.13)); R(x, HZ - h, 2, h, '#9a7a9a'); }
     for (const [mx, mw, mh] of [[18, 50, 22], [236, 64, 18], [130, 40, 14]]) {
       const x = ((((mx + p2) % 420) + 420) % 420) - 60;
       R(x, HZ - mh, mw, mh, '#a4513b'); R(x + 8, HZ - mh - 4, mw - 16, 4, '#a4513b'); R(x + 8, HZ - mh - 4, mw - 16, 1, '#c06a4a');
     }
-    // ground + trail; bridges swap the desert for a river and the dirt for planks
     for (let y = HZ; y < LH; y++) {
       const z = GND / Math.max(0.5, y - HZ + 0.5), band = Math.floor((z + RIDE.dist) * 0.8) % 2, br = onBridge(z);
       const l = Math.round(projX(-1.6, z)), r = Math.round(projX(1.6, z));
@@ -695,7 +754,6 @@ RUNS.trail = {
         if (y > HZ + 6 && Math.floor((z + RIDE.dist) * 2) % 3) for (const wx of [-1.3, -0.7, -0.3, 0.3, 0.7, 1.3]) R(Math.round(projX(wx, z)), y, 1, 1, '#946a3e');
       }
     }
-    // bridge railings: posts every world unit, rails between them
     for (const b of RIDE.bridges) for (const side of [-1.75, 1.75]) {
       let prev = null;
       for (let wz = Math.ceil(b.z + RIDE.dist); wz <= b.z + b.len + RIDE.dist; wz++) {
@@ -706,20 +764,17 @@ RUNS.trail = {
         prev = { x, top, by };
       }
     }
-    // telegraph wire
     const poles = RIDE.posts.filter(p => p.pole && !onBridge(p.z)).sort((a, b) => b.z - a.z);
     for (let i = 0; i + 1 < poles.length; i++) { const a = poleTop(poles[i]), b = poleTop(poles[i + 1]); line(a.x, a.y + 1, b.x, b.y + 1, '#3a2a20'); }
-    // everything on the ground, far to near
     const items = [
       ...RIDE.deco.filter(o => !onBridge(o.z)).map(o => [o.z, () => { const s = FOC / o.z * o.s, x = projX(o.wx, o.z), by = projY(o.z); o.kind === 'cactus' ? cactusAt(x, by, s) : o.kind === 'bush' ? bushAt(x, by, s) : boulder(x, by, 0.3 * s, 0.2 * s); }]),
       ...RIDE.posts.filter(p => !onBridge(p.z)).map(p => [p.z, () => (p.pole ? drawPole(p) : drawPost(p))]),
       ...RIDE.signs.map(p => [p.z, () => drawSign(p)]),
       ...RIDE.obs.filter(o => o.z > 0.8).map(o => [o.z + (o.kind === 'hole' ? 0.9 : 0), () => (o.kind === 'log' ? logObs(o) : o.kind === 'hole' ? holeObs(o) : boulder(projX(o.lanes[0], o.z), projY(o.z), 0.62 * FOC / o.z, 0.42 * FOC / o.z))]),
       ...RIDE.tumbles.map(t => [t.z, () => drawTumbleweed(t)]),
-      ...RIDE.riders.map(r => [r.near ? 1.6 : 3.4, () => drawRider(r)]),
+      ...RIDE.riders.map(r => [riderZ(r), () => drawRider(r)]),
     ].filter(([z]) => z < FAR).sort((a, b) => b[0] - a[0]);
     items.forEach(([, f]) => f());
-    // speed lines
     const vx = Math.round(projX(0, FAR)), sp = Math.min(1, RIDE.v / 13);
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2 + 0.2, p = (clock * 2.4 * sp + i * 0.137) % 1, r0 = 70 + p * 220, len = 10 + p * 30;
@@ -733,27 +788,30 @@ RUNS.trail = {
   },
   ui() {
     if (!['intro', 'play'].includes(state)) return;
-    // progress to the cabin + speedometer
     const bx = W / 2 - 180, bw = 360, k = Math.min(1, time / RACE_END);
     rect(bx - 3, 14, bw + 6, 12, INK); rect(bx, 17, bw, 6, '#7a5a34'); rect(bx, 17, Math.round(bw * k), 6, '#ffd23f');
     rect(bx + bw + 6, 8, 3, 22, '#3b2210'); rect(bx + bw + 9, 8, 14, 9, '#c0302b');
     rect(bx + Math.round(bw * k) - 6, 10, 12, 8, '#ece4cc'); rect(bx + Math.round(bw * k) - 6, 18, 12, 3, '#7a4a24');
     const mph = RIDE.hit88 ? 88 : Math.round(RIDE.v * MPH_PER_V + Math.sin(clock * 7) * 1.5);
     text(mph + ' MPH', W / 2, 36, 16, mph >= 88 ? '#ff9a3a' : '#ffd23f', 'center');
+    // wagon health: how many more bumps before it costs a heart
+    const n = diff.crashes || 1, left = n - RIDE.bumps, wx0 = W / 2 - (n * 26) / 2;
+    text('WAGON', wx0 - 12, 62, 16, '#f3d18b', 'right');
+    for (let i = 0; i < n; i++) { const on = i < left; rect(wx0 + i * 26, 58, 20, 20, INK); rect(wx0 + i * 26 + 3, 61, 14, 14, on ? '#c98a4b' : '#3b2210'); if (on) rect(wx0 + i * 26 + 3, 61, 14, 3, '#e8b070'); }
     ctx.globalAlpha = 0.9;
     for (const kk of ['l', 'r']) {
-      const b = STEER[kk], on = RIDE.press[kk] > 0 || (inBox(mouse.x, mouse.y, b) && !touchMode);
+      const b = STEER[kk], on = RIDE.hold[kk] || (inBox(mouse.x, mouse.y, b) && !touchMode);
       panel(b.x, b.y, b.w, b.h, on ? '#9a6236' : '#5a3418');
       const cx = b.x + b.w / 2, cy = b.y + b.h / 2, d = kk === 'l' ? -1 : 1;
       for (let i = 0; i < 7; i++) { const hh = (7 - i) * 6; rect(cx - d * 15 + d * i * 6 - 3, cy - hh / 2, 6, hh, on ? '#ffd23f' : '#ffffff'); }
     }
-    for (let i = -1; i <= 1; i++) rect(W - 126 + i * 24 - 6, H - 126, 12, 9, i === RIDE.lane ? '#ffd23f' : 'rgba(255,255,255,.35)');
+    rect(W - 186, H - 124, 132, 5, 'rgba(255,255,255,.35)'); rect(W - 120 + Math.round(RIDE.px / ROAD_EDGE * 60) - 6, H - 130, 12, 12, '#ffd23f');
     ctx.globalAlpha = 1;
   },
-  tap(x, y) { if (inBox(x, y, STEER.l)) { steer(-1); return true; } if (inBox(x, y, STEER.r)) { steer(1); return true; } return false; },
+  tap(x, y) { for (const k of ['l', 'r']) if (inBox(x, y, STEER[k])) { holdSteer(k, true, RIDE.lastPointer); return true; } return false; },
   key(k) {
-    if (k === 'arrowleft' || k === 'a') { steer(-1); return true; }
-    if (k === 'arrowright' || k === 'd') { steer(1); return true; }
+    if (k === 'arrowleft' || k === 'a') { holdSteer('l', true, 'key'); return true; }
+    if (k === 'arrowright' || k === 'd') { holdSteer('r', true, 'key'); return true; }
     return false;
   },
 };
@@ -776,13 +834,16 @@ function spokeWheel(cx, cy, r, ang) {
   disc(cx, cy, 2, '#3b2210');
 }
 const WAGON_STOP = 34;
-function wagonSide(x, base, moving, ang = -x / 9) {
+// you = true draws you on the bench next to Eliza; false = you're resting in the back
+function wagonSide(x, base, moving, ang = -x / 9, you = true) {
   x = Math.round(x);
   const wy = base - 24, fr = Math.floor(clock * 7) % 4;
   for (let j = 0; j < 26; j++) { const t = j / 26, inset = Math.round(6 * Math.pow(1 - t, 2)); R(x + 4 + inset, wy - 26 + j, 52 - inset * 2, 1, j < 4 ? '#f8f2e0' : '#ece4cc'); }
   for (const hx of [14, 28, 42]) R(x + hx, wy - 24, 1, 24, '#c8bca0');
   R(x + 50, wy - 20, 6, 20, '#3a2a20');
-  ch2Fig({ ...CHARS.newSheriff, pose: 'idle' }, x + 44, wy + 9); ch2Fig({ ...CHARS.eliza, pose: 'idle' }, x + 54, wy + 9);
+  if (you) ch2Fig({ ...CHARS.newSheriff, pose: 'idle' }, x + 44, wy + 9);
+  else { R(x + 51, wy - 6, 4, 2, '#6b4a2a'); R(x + 52, wy - 8, 2, 2, '#6b4a2a'); } // your hat, peeking out of the back
+  ch2Fig({ ...CHARS.eliza, pose: 'idle' }, x + 54, wy + 9);
   R(x, wy, 66, 13, '#7a4a24'); R(x, wy, 66, 1, '#9a6236'); R(x, wy + 6, 66, 1, '#5a3418'); R(x, wy + 13, 66, 2, '#4a2a14');
   R(x + 2, wy + 2, 10, 3, '#c9a040'); signText('PB&J', x + 33, wy + 3, '#f4efe0');
   spokeWheel(x + 12, base - 9, 9, ang); spokeWheel(x + 54, base - 7, 7, ang * 1.3);
@@ -842,7 +903,7 @@ CUTS.ch2Cabin = {
 };
 
 // ---- night falls over the cabin, then fade to black
-const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. THE SHERIFF SETTLES IN ON THE ROOF TO KEEP WATCH.';
+const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. YOU CLIMB UP ON THE ROOF AND SETTLE IN TO KEEP WATCH.';
 SCENES.ch2Night = {
   tune: null,
   enter() { this.textT = 0; this.doneT = 0; this.cricket = 0.5; this.out = false; this.outT = 0; },
@@ -952,7 +1013,7 @@ function drawTnt(x, y, s, rot) {
   disc(Math.round(fx), Math.round(fy), Math.max(1, Math.round(s * (fl ? 1.3 : 0.9))), '#ffd23f'); R(Math.round(fx), Math.round(fy), 1, 1, '#ffffff');
 }
 LEVELS.push({
-  label: 'CH. 2', name: 'THE CABIN', set: 'cabinSiege',
+  label: null, name: 'THE CABIN', hint: 'SHOOT THE TNT OUT OF THE AIR!', set: 'cabinSiege',
   spots: {
     bushL: { x: 34, y: 52, w: 26, h: 36, a: 'bottom' }, rock: { x: 96, y: 50, w: 26, h: 36, a: 'bottom' },
     wagon: { x: 157, y: 26, w: 26, h: 36, a: 'bottom' }, wood: { x: 210, y: 46, w: 28, h: 36, a: 'bottom' },
@@ -972,7 +1033,7 @@ LEVELS.push({
           { k: 'can', x: 182, y: 95, layer: 'bg' }, { k: 'jug', x: 222, y: 60, layer: 'fg' }, { k: 'lantern', x: 150, y: 92, layer: 'fg' }],
   reset() { SIEGE.tnt = []; SIEGE.fx = []; SIEGE.parts = []; },
   busy() { return SIEGE.tnt.length > 0; },
-  onFire(a) { // TNT bandits throw instead of shooting
+  onFire(a) {
     if (!a.spec.tnt) return false;
     const h = tntHand(a);
     SIEGE.tnt.push({ x0: h.x, y0: h.y, x1: 40 + Math.random() * 240, y1: LH - 14, t: 0, dur: TNT_FLIGHT * diff.mult, rot: 0 });
@@ -986,7 +1047,7 @@ LEVELS.push({
     SIEGE.fx = SIEGE.fx.filter(f => f.t < 1.3);
     for (const k of SIEGE.tnt) {
       k.t += dt; k.rot += dt * 7;
-      if (k.t >= k.dur) { // it landed on the roof
+      if (k.t >= k.dur) {
         SIEGE.tnt = SIEGE.tnt.filter(o => o !== k);
         boom(k.x1, k.y1, 3); shake = Math.max(shake, 0.7);
         hurt('tnt', null); return;
@@ -1005,7 +1066,7 @@ LEVELS.push({
     return false;
   },
   draw() {
-    for (const a of actives) if (!a.dead && a.spec.tnt && a.rise > 0.7) { // lit stick held overhead
+    for (const a of actives) if (!a.dead && a.spec.tnt && a.rise > 0.7) {
       const h = tntHand(a); R(h.x - 1, h.y - 7, 3, 7, INK); R(h.x, h.y - 6, 1, 5, '#c0302b'); R(h.x, h.y - 8, 1, 2, '#3b2210');
       if (Math.floor(clock * 20) % 2) R(h.x - 1, h.y - 10, 2, 2, '#ffd23f');
     }
@@ -1024,16 +1085,16 @@ const CABIN_LEVEL = LEVELS.length - 1;
 CUTS.ch2Dawn = {
   set: 'cabinSiege', actors: [],
   lines: [
-    ['narr', 'THE NEXT MORNING, THE SHERIFF WAKES UP ON THE ROOF. THE COFFEE IS COLD.'],
+    ['narr', 'YOU WAKE UP ON THE ROOF, SORE AND GRUMPY, NEXT TO A CUP OF COLD COFFEE. SHINGLES MAKE A LOUSY MATTRESS.'],
     ['narr', 'BANDITS AND NATIVES HAVE SURROUNDED THE CABIN. AND SOME OF THEM BROUGHT DYNAMITE.'],
     ['eliza', "SHERIFF! SHOOT THOSE STICKS BEFORE THEY HIT AUNT MAE'S ROOF!"],
   ],
 };
 
 // =====================================================================
-//  RIDING ON ALONG THE LAKE (end of chapter 2)
+//  RIDING ON ALONG THE LAKE: Eliza takes the reins, you rest in the back
 // =====================================================================
-function lakeRideArt() {
+function lakeRideArt(you = true) {
   const s = clock * 40;
   ['#7ab0e0', '#9ac4e8', '#bcd8ee', '#dceaf0'].forEach((c, i) => R(0, i * 10, LW, 10, c));
   disc(250, 16, 8, '#fff6c8');
@@ -1046,37 +1107,69 @@ function lakeRideArt() {
   for (let i = 0; i < 40; i++) { const rx = ((i * 37 - s * 0.8) % 340 + 340) % 340 - 10; R(Math.round(rx), 66 + (i % 3), 1, 8, '#4a6a2a'); R(Math.round(rx), 65 + (i % 3), 1, 2, '#7a5a34'); }
   R(0, 76, LW, 30, '#b08a58'); for (let i = 0; i < 30; i++) { const dx = ((i * 53 - s) % 340 + 340) % 340 - 10; R(Math.round(dx), 80 + (i * 7) % 24, 3, 1, '#9a7448'); }
   R(0, 106, LW, 74, '#6e8a3a'); for (let i = 0; i < 40; i++) { const fx = ((i * 29 - s * 1.3) % 340 + 340) % 340 - 10; R(Math.round(fx), 108 + (i * 11) % 8, 1, 1, ['#e8c040', '#f4efe0', '#c04a6a'][i % 3]); }
-  wagonSide(118, 102, true, clock * 4.5);
+  wagonSide(118, 102, true, clock * 4.5, you);
 }
-SETS.lakeRide = { bg: lakeRideArt, fg: () => {} };
+SETS.lakeRide = { bg: () => lakeRideArt(true), fg: () => {} };
 CUTS.ch2Lake = {
   set: 'lakeRide', actors: [], tune: 'morning',
   lines: [
-    ['narr', 'WITH THE YARD QUIET AGAIN, THEY HITCH UP THE TEAM AND RIDE ON ALONG THE LAKE.'],
-    ['eliza', "CRYSTAL CANYON'S JUST PAST THOSE HILLS. HANG ON, JEB. WE'RE COMIN'."],
+    ['narr', 'WITH THE YARD QUIET AGAIN, YOU HITCH UP THE TEAM AND RIDE ON ALONG THE LAKE.'],
+    ['eliza', "YOU LOOK LIKE SOMETHIN' THE CAT DRAGGED IN, SHERIFF. GIVE ME THE REINS. I'LL DRIVE."],
+    ['eliza', "CLIMB IN THE BACK AND GET SOME SLEEP. CRYSTAL CANYON AIN'T GOIN' ANYWHERE."],
   ],
+};
+// ---- you crawl into the back of the wagon; the scene and the words fade out together
+const REST_TEXT = 'YOU STRETCH OUT ON THE FLOUR SACKS IN THE BACK OF THE WAGON. THE WHEELS RUMBLE, THE LAKE GOES BY, AND YOUR EYES GET HEAVY...';
+SCENES.ch2Rest = {
+  tune: 'morning',
+  enter() { this.textT = 0; this.doneT = 0; this.out = false; this.outT = 0; },
+  shown() { return Math.floor(this.textT * 26); },
+  update(dt) {
+    if (this.t > 0.6) this.textT += dt;
+    if (this.shown() >= REST_TEXT.length) { this.doneT += dt; if (this.doneT > 2.5) this.out = true; }
+    if (this.out) { this.outT += dt; if (this.outT > 3.4) nextStep(); }
+  },
+  tap() { if (this.shown() < REST_TEXT.length) this.textT = 99; else if (!this.out) this.out = true; else this.outT = Math.max(this.outT, 3.0); },
+  key() { this.tap(); },
+  world() { lakeRideArt(false); },
+  ui() {
+    const a = this.out ? Math.max(0, 1 - this.outT / 2.2) : 1; // the words drift away first...
+    ctx.globalAlpha = a; narrBox(REST_TEXT, this.shown()); ctx.globalAlpha = 1;
+    if (!this.out && this.shown() >= REST_TEXT.length) for (let i = 0; i < 3; i++) {
+      const p = (clock * 0.45 + i / 3) % 1; ctx.globalAlpha = 1 - p;
+      text('Z', 400 + p * 40, 210 - p * 70, 16, '#f4efe0', 'center'); ctx.globalAlpha = 1;
+    }
+    fadeBlack(this.out ? (this.outT - 0.6) / 2.4 : 0);                // ...then the whole picture goes dark
+  },
 };
 
 // =====================================================================
-//  END OF CHAPTER 2
+//  END OF CHAPTER 2 — final tally for the chapter (counts up line by line)
 // =====================================================================
 SCENES.ch2End = {
   tune: 'morning',
-  enter() { saveBest(); sfx.win(); },
-  world() { lakeRideArt(); },
+  enter() { saveBest(); sfx.clear(); this.k = 0; },
+  update() { const k = Math.floor(this.t / 0.45); if (k !== this.k) { this.k = k; if (k <= 7) sfx.blip(); } },
+  world() { lakeRideArt(false); },
   ui() {
-    dim(0.6); panel(W / 2 - 330, 70, 660, 400);
-    text('END OF CHAPTER 2', W / 2, 98, 32, '#ffd23f', 'center');
-    const acc = shots ? Math.round(hits / shots * 100) : 0;
-    [['OUTLAWS DROPPED', S.n.outlaw], ['HATS SHOT', S.n.hat], ['BOTTLES', S.n.bottle], ['BIRDS, TNT & OTHER TARGETS', S.n.obj], ['ACCURACY', acc + '%']]
-      .forEach(([k, v], i) => { text(k, W / 2 - 280, 170 + i * 36, 16, '#ffffff'); text(String(v), W / 2 + 280, 170 + i * 36, 16, '#f3d18b', 'right'); });
-    text('SCORE ' + score, W / 2, 364, 24, '#ffffff', 'center');
-    text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 404, 16, '#ffd23f', 'center');
-    if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 440, 16, '#f3d18b', 'center');
+    dim(0.78); panel(150, 14, 660, 512);
+    text('CHAPTER 2 TALLY', W / 2, 36, 32, '#ffd23f', 'center');
+    const rows = [['OUTLAWS DROPPED ' + S.n.outlaw, S.pts.outlaw], ['HATS SHOT ' + S.n.hat, S.pts.hat], ['BOTTLES ' + S.n.bottle, S.pts.bottle],
+      ['BIRDS, TNT & OTHER TARGETS ' + S.n.obj, S.pts.obj]];
+    const k = Math.floor(this.t / 0.45);
+    rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 98 + i * 34, 16, '#ffffff'); text('+' + r[1], 760, 98 + i * 34, 16, '#f3d18b', 'right'); } });
+    if (k > rows.length) { rect(200, 246, 560, 3, '#c98a4b'); text('TOTAL', 200, 264, 24, '#ffffff'); text(String(score), 760, 264, 24, '#ffd23f', 'right'); }
+    if (k > rows.length + 1) {
+      const acc = shots ? Math.round(hits / shots * 100) : 0;
+      text('BULLETS FIRED ' + shots, 200, 330, 16, '#f3d18b'); text('ACCURACY ' + acc + '%', 200, 362, 16, '#f3d18b');
+      text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 420, 16, '#ffd23f', 'center');
+      text('NEXT: CHAPTER 3', W / 2, 456, 16, '#ffffff', 'center');
+      if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 490, 16, '#f3d18b', 'center');
+    }
   },
-  tap() { if (this.t > 0.8) toTitle(); },
+  tap() { if (this.t < 0.45 * 7) this.t = 0.45 * 8; else toTitle(); },
   key() { this.tap(); },
 };
 
 // ---------------- STORY ORDER (chapter 2) ----------------
-const STORY2 = [{ cut: 'ch2Saloon' }, { run: 'trail' }, { cut: 'ch2Cabin' }, { scene: 'ch2Night' }, { cut: 'ch2Dawn' }, { level: CABIN_LEVEL }, { cut: 'ch2Lake' }, { scene: 'ch2End' }];
+const STORY2 = [{ cut: 'ch2Saloon' }, { run: 'trail' }, { cut: 'ch2Cabin' }, { scene: 'ch2Night' }, { cut: 'ch2Dawn' }, { level: CABIN_LEVEL }, { cut: 'ch2Lake' }, { scene: 'ch2Rest' }, { scene: 'ch2End' }];
