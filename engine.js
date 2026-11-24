@@ -210,8 +210,8 @@ const nextStep = () => goStep(step + 1);
 function startScene(name) { scene = SCENES[name]; scene.t = 0; state = 'scene'; effects = []; if (scene.enter) scene.enter(); }
 function startLevel(i) {
   levelIdx = i; const L = LEVELS[i]; spots = L.spots; levelStartScore = score; S0 = cloneS(S); lives = diff.lives; // refill each level
-  events = L.events.map(([t, spot, ty, win, walk], n) => ({ t, spot, walk, type: ty === 'o' ? 'outlaw' : 'bystander', window: win,
-    spec: walk ? { ...WALKERS[(n + i) % WALKERS.length], pose: ty === 'o' ? 'aim' : 'hands' } : ty === 'o' ? { ...OUTLAWS[(n + i) % OUTLAWS.length], pose: 'aim' } : { ...BYSTANDERS[(n + i) % BYSTANDERS.length], pose: 'hands' } })).sort((a, b) => a.t - b.t);
+  events = L.events.map(([t, spot, ty, win, walk], n) => ({ t, spot, walk, type: ty === 'b' ? 'bystander' : 'outlaw', window: win,
+    spec: L.spec ? L.spec(ty, n, walk) : walk ? { ...WALKERS[(n + i) % WALKERS.length], pose: ty === 'o' ? 'aim' : 'hands' } : ty === 'o' ? { ...OUTLAWS[(n + i) % OUTLAWS.length], pose: 'aim' } : { ...BYSTANDERS[(n + i) % BYSTANDERS.length], pose: 'hands' } })).sort((a, b) => a.t - b.t);
   resetLevel();
 }
 function resetLevel() { // dying sends you back to the START of the level (bonus targets reset too)
@@ -501,7 +501,7 @@ function update(dt) {
     }
     a.age += dt;
     if (a.age >= a.window) {
-      if (a.type === 'outlaw') { hurt('shot', a); if (state !== 'play') return; continue; }
+      if (a.type === 'outlaw') { if (a.spec.pose === 'bow') tone('sine', 900, 250, 0.18, 0.12); hurt(a.spec.pose === 'bow' ? 'arrow' : 'shot', a); if (state !== 'play') return; continue; }
       if (a.walk) a.phase = 'out'; else a.gone = true; // bystander leaves safely
     }
   }
@@ -1094,7 +1094,7 @@ function drawHUD() { // drawn in game coords: x < 0 is the left panel, x > W is 
   panel(LX, 108, PW, 84, hb ? '#9a6236' : '#5a3418');
   spriteUI(HAT_ICON, HAT_PAL, LC - 21, 124 - (hb ? 3 : 0), 3);
   text(String(hatsShot), LC, 154, 24, hb ? '#ffd23f' : '#ffffff', 'center');
-  const head = inDuel ? null : run ? run.label : 'LEVEL ' + (levelIdx + 1);
+  const head = inDuel ? null : run ? run.label : (LEVELS[levelIdx].label || 'LEVEL ' + (levelIdx + 1));
   const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)];
   panel(LX, 204, PW, 36 + all.length * 24);
   all.forEach((l, i) => text(l, LC, 224 + i * 24, 16, head && i === 0 ? '#f3d18b' : '#ffffff', 'center'));
@@ -1256,7 +1256,7 @@ function draw() {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
     if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
     else if (run) { text(run.title, W / 2, 194, 32, '#ffd23f', 'center'); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
-    else { text('LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
+    else { text(LEVELS[levelIdx].label || 'LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
   }
   if (state === 'clear' && clearInfo) {
     const ci = clearInfo;

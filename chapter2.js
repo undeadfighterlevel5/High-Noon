@@ -1,11 +1,13 @@
 // =====================================================================
-//  HIGH NOON — CHAPTER 2: THE CRYSTAL CANYON RUN  (work in progress)
+//  HIGH NOON — CHAPTER 2: THE CRYSTAL CANYON RUN
 //  Loaded after engine.js and chapter1.js. For now it's only reachable
 //  from the TEST button on the main title screen.
 //
 //  Flow:  ch2Room (night, fade to black) -> ch2Title (breakfast + badges)
 //         -> ch2Saloon (Eliza walks in) -> THE TRAIL (wagon ride)
-//         -> ch2Cabin (sunset at the lake) -> ch2End (to be continued)
+//         -> ch2Cabin (sunset, keep watch) -> ch2Night (fade to black)
+//         -> ch2Dawn (surrounded!) -> THE CABIN (siege from the roof)
+//         -> ch2Lake (riding on along the lake) -> ch2End
 // =====================================================================
 
 // ---------------- CAST ----------------
@@ -323,7 +325,7 @@ CUTS.ch2Saloon = {
     ['eliza', "YOU THE NEW SHERIFF? I'M ELIZA HOLLOWAY. I NEED YOUR HELP."],
     ['eliza', "MY HUSBAND JEB TOOK A JOB HAULIN' SUPPLIES FOR THE PB&J RAILROAD. NOW HE'S MISSIN'."],
     ['eliza', "HIS LAST LETTER CAME FROM CRYSTAL CANYON. THE RAILROAD SAYS THEY DON'T KNOW WHERE HE IS."],
-    ['eliza', "GETTIN' THERE MEANS CROSSIN' INDIAN TERRITORY. I NEED A HIRED GUN. I CAN'T PAY MUCH, BUT I MAKE A MEAN PEACH COBBLER."],
+    ['eliza', "GETTIN' THERE MEANS CROSSIN' NATIVE TERRITORY. I NEED A HIRED GUN. I CAN'T PAY MUCH, BUT I MAKE A MEAN PEACH COBBLER."],
     ['gus', "SHE AIN'T LYIN' ABOUT THE COBBLER, SHERIFF."],
     ['eliza', 'WE LEAVE IN AN HOUR.'],
   ],
@@ -331,7 +333,7 @@ CUTS.ch2Saloon = {
 SETS.saloonWide = { bg: () => saloonWideArt(CH2.enterAt != null && state === 'cut' && cutLine < GUS_LINE), fg: () => {} };
 
 // =====================================================================
-//  HORSES (side view, 32x24 grid, facing right unless flipped)
+//  HORSES
 // =====================================================================
 const HORSE_COATS = {
   bay:      { coat: '#8a4a24', dark: '#5a2e14', mane: '#2a1a10', light: '#a8603a' },
@@ -341,26 +343,68 @@ const HORSE_COATS = {
   pinto:    { coat: '#f0ece0', dark: '#c8c0b0', mane: '#3a2a1a', light: '#ffffff', spots: '#8a4a24' },
   palomino: { coat: '#d8a850', dark: '#a87a30', mane: '#f4efe0', light: '#ecc070' },
 };
+// side view (cutscenes: the wagon team), 32x24 grid, facing right unless flipped
 function horse(x, y, sc, fr, Hc, flip, blanket, moving = true) {
   let ox = 0, oy = 0, ink = false;
   const hp = (lx, ly, w, h, c) => R((flip ? x + (32 - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c);
   const OFF = [-2, -1, 1, 2];
   const shape = () => {
-    hp(2, 6, 3, 2, Hc.mane); hp(0, 8, 3, 6, Hc.mane); hp(1, 14, 2, 2, Hc.mane);                 // tail
-    [[6, 0], [9, 2], [20, 1], [23, 3]].forEach(([lx, ph], i) => {                                    // legs
+    hp(2, 6, 3, 2, Hc.mane); hp(0, 8, 3, 6, Hc.mane); hp(1, 14, 2, 2, Hc.mane);
+    [[6, 0], [9, 2], [20, 1], [23, 3]].forEach(([lx, ph], i) => {
       const o = moving ? OFF[(fr + ph) % 4] : 0, c = i % 2 ? Hc.coat : Hc.dark;
       hp(lx, 15, 2, 4, c); hp(lx + o, 19, 2, 3, c); hp(lx + o, 22, 2, 1, '#2a1a10');
     });
-    hp(5, 7, 19, 9, Hc.coat); hp(4, 8, 1, 7, Hc.coat); hp(24, 8, 1, 6, Hc.coat);                   // body
-    hp(21, 2, 5, 8, Hc.coat); hp(23, 0, 5, 3, Hc.coat); hp(26, 1, 4, 4, Hc.coat); hp(28, 4, 4, 3, Hc.coat); // neck + head
-    hp(24, -1, 1, 2, Hc.coat);                                                                     // ear
-    hp(20, 1, 2, 7, Hc.mane); hp(22, 0, 2, 2, Hc.mane);                                             // mane
+    hp(5, 7, 19, 9, Hc.coat); hp(4, 8, 1, 7, Hc.coat); hp(24, 8, 1, 6, Hc.coat);
+    hp(21, 2, 5, 8, Hc.coat); hp(23, 0, 5, 3, Hc.coat); hp(26, 1, 4, 4, Hc.coat); hp(28, 4, 4, 3, Hc.coat);
+    hp(24, -1, 1, 2, Hc.coat);
+    hp(20, 1, 2, 7, Hc.mane); hp(22, 0, 2, 2, Hc.mane);
   };
   ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx; oy = dy; shape(); }
   ink = false; ox = oy = 0; shape();
   if (Hc.spots) { hp(8, 8, 5, 4, Hc.spots); hp(15, 11, 4, 3, Hc.spots); hp(22, 3, 3, 3, Hc.spots); }
   hp(6, 7, 17, 1, Hc.light); hp(6, 15, 17, 1, Hc.dark); hp(30, 5, 2, 2, Hc.dark); hp(27, 2, 1, 1, INK);
   if (blanket) { hp(10, 6, 9, 5, blanket); hp(10, 10, 9, 1, shade(blanket, 0.7)); hp(12, 5, 5, 2, '#5a3418'); }
+}
+// rear-quarter view (the trail riders): we see the horse's rump, tail and the flank facing the wagon,
+// with the neck and head pointing away up the trail. 32x32 grid. part = 'back' (legs, barrel, neck, head)
+// or 'front' (rump + tail, drawn over the rider's legs).
+function horseBack(x, y, sc, fr, Hc, flip, blanket, part) {
+  let ox = 0, oy = 0, ink = false;
+  const hp = (lx, ly, w, h, c) => R((flip ? x + (32 - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c);
+  const ell = (cx, cy, rx, ry, c, c2, split) => { // filled ellipse, optional shaded right part
+    for (let j = -ry; j <= ry; j++) { const hw = Math.round(rx * Math.sqrt(1 - (j * j) / (ry * ry + 0.01))); if (hw <= 0) continue;
+      hp(cx - hw, cy + j, hw * 2, 1, c); if (c2 && !ink) hp(cx + Math.round(hw * split), cy + j, hw - Math.round(hw * split), 1, c2); }
+  };
+  const gal = [0, 1, 2, 1][fr % 4], gal2 = [2, 1, 0, 1][fr % 4], sw = [-1, 0, 1, 0][fr % 4];
+  const back = () => {
+    hp(24, 19, 2, 6 - gal, Hc.dark); hp(24, 25 - gal, 2, 1, '#2a1a10');            // far front legs (shorter: further away)
+    hp(27, 18, 2, 5 - gal2, Hc.dark); hp(27, 23 - gal2, 2, 1, '#2a1a10');
+    ell(21, 14, 9, 6, Hc.coat, Hc.dark, 0.3);                                      // barrel, flank toward the wagon
+    ell(28, 8, 2, 4, Hc.coat); ell(29, 4, 2, 3, Hc.coat);                          // neck reaching away up the trail
+    ell(30, 1, 2, 2, Hc.coat);                                                     // back of the head
+    hp(28, -3, 1, 3, Hc.coat); hp(31, -3, 1, 3, Hc.coat);                          // ears
+  };
+  const front = () => {
+    hp(5, 24, 3, 7 - gal, Hc.coat); hp(5, 31 - gal, 3, 1, '#2a1a10');              // hind legs, galloping
+    hp(13, 24, 3, 7 - gal2, Hc.dark); hp(13, 31 - gal2, 3, 1, '#2a1a10');
+    ell(7, 18, 5, 7, Hc.coat); ell(14, 18, 5, 7, Hc.coat, Hc.dark, 0.1);          // two rounded haunches
+    hp(5, 22, 12, 3, Hc.coat);
+  };
+  if (part === 'back') {
+    ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx * sc; oy = dy * sc; back(); }
+    ink = false; ox = oy = 0; back();
+    if (Hc.spots) { hp(22, 11, 5, 4, Hc.spots); hp(28, 6, 1, 3, Hc.spots); }
+    hp(27, -1, 1, 11, Hc.mane); hp(28, -2, 2, 2, Hc.mane);                          // mane along the neck
+    hp(12, 9, 14, 1, Hc.light);                                                      // sun along the back
+    if (blanket) { hp(13, 8, 10, 4, blanket); hp(13, 11, 10, 1, shade(blanket, 0.7)); }
+    return;
+  }
+  ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx * sc; oy = dy * sc; front(); }
+  ink = false; ox = oy = 0; front();
+  if (Hc.spots) { hp(13, 14, 4, 5, Hc.spots); }
+  hp(4, 13, 2, 6, Hc.light);                                                         // highlight on the near haunch
+  hp(10, 13, 1, 10, shade(Hc.coat, 0.7));                                            // crease between the haunches
+  hp(9 + sw, 10, 3, 4, Hc.mane); hp(9 + sw * 2, 14, 3, 9, Hc.mane); hp(9 + sw * 3, 23, 2, 3, Hc.mane); // tail streaming back
 }
 function blitFlip(img, x, y, sc, flip, shear = 0) {
   if (!flip) { blit(img, x, y, sc, shear); return; }
@@ -384,7 +428,7 @@ const NATIVE_RIDERS = [
   { hat: 'feather', hatC: '#2a6a8a', featherC: '#3b2210', skin: '#a86a40', hair: '#1b1410', hairLong: true, shirt: '#b89060', pants: '#6a4a2a', boots: '#5a3a1a', face: 'plain' },
   { hat: 'feather', hatC: '#e2b33c', featherC: '#c0302b', skin: '#c08050', hair: '#2a1a10', hairLong: true, shirt: '#d8b888', vest: '#3a6a5a', pants: '#7a5a3a', boots: '#6a4a2a', face: 'plain' },
 ];
-const TRAVELERS = [ // innocent folks on the trail
+const TRAVELERS = [ // innocent settlers on the trail
   { hat: 'cowboy', hatC: '#c8a46a', skin: '#f0c090', hair: '#a0703a', shirt: '#4a7ab8', vest: '#d8d0c0', pants: '#4a4a5a', boots: '#3a2a1a', face: 'plain' },
   { hat: 'cowboy', hatC: '#8a8a7a', skin: '#e8b07a', hair: '#d8d8d8', shirt: '#a85a3a', pants: '#5a4a3a', boots: '#3a2a1a', face: 'beard', beardC: '#e8e8e8' },
   { hat: 'bowler', hatC: '#3a2a20', skin: '#f0c8a0', hair: '#5a3a1a', shirt: '#e8e0cc', vest: '#6a2a2a', pants: '#3a3a3a', boots: '#1b1410', face: 'mustache', beardC: '#5a3a1a' },
@@ -392,6 +436,7 @@ const TRAVELERS = [ // innocent folks on the trail
 
 // Events (seconds into the ride):
 //   ['R', t, side L/R, near 1 / far 0, 'o'utlaw or 'b'ystander, who, seconds before they fire, wait-to-reveal 1/0]
+//   Bandits and natives are always hostile. Settlers are the only innocent riders.
 //   ['rock', t, lane]   ['log', t, laneA, laneB]   ['bird', t, dir]   ['bottles', t, side]   ['tumble', t, dir]
 const TRAIL = [
   ['R', 2.0, 'L', 0, 'o', 'bandit', 1.9, 0],
@@ -401,7 +446,7 @@ const TRAIL = [
   ['R', 8.5, 'L', 1, 'o', 'native', 1.7, 1],
   ['rock', 10.0, 1], ['bottles', 10.5, 'R'],
   ['R', 12.0, 'R', 0, 'o', 'bandit', 1.6, 0],
-  ['R', 13.0, 'L', 0, 'b', 'native', 1.8, 1],
+  ['R', 13.0, 'L', 0, 'b', 'settler', 1.8, 1],
   ['log', 14.5, -1, 0],
   ['R', 16.0, 'R', 1, 'o', 'bandit', 1.6, 1],
   ['tumble', 17.0, 1],
@@ -418,7 +463,7 @@ const TRAIL = [
   ['tumble', 33.0, -1],
   ['R', 34.0, 'L', 1, 'o', 'bandit', 1.3, 1],
   ['log', 35.0, -1, 0],
-  ['R', 36.5, 'R', 1, 'b', 'native', 1.6, 1],
+  ['R', 36.5, 'R', 1, 'b', 'settler', 1.6, 1],
   ['bird', 37.5, -1],
   ['R', 38.5, 'R', 0, 'o', 'bandit', 1.3, 1], ['R', 39.0, 'L', 1, 'o', 'native', 1.25, 0],
   ['rock', 40.5, 1], ['rock', 41.3, 0],
@@ -434,7 +479,7 @@ const TRAIL = [
   ['R', 56.0, 'R', 1, 'o', 'bandit', 1.05, 1],
   ['rock', 58.0, 0], ['log', 58.8, -1, 0],
   ['bird', 60.0, -1], ['bird', 60.5, -1],
-  ['R', 61.5, 'L', 1, 'b', 'native', 1.4, 1], ['R', 62.5, 'R', 1, 'o', 'bandit', 1.0, 1],
+  ['R', 61.5, 'L', 1, 'b', 'settler', 1.4, 1], ['R', 62.5, 'R', 1, 'o', 'bandit', 1.0, 1],
   ['R', 64.0, 'L', 0, 'o', 'bandit', 1.0, 0], ['R', 64.5, 'R', 0, 'o', 'native', 1.0, 1],
   ['R', 66.5, 'L', 1, 'o', 'bandit', 0.95, 0], ['R', 67.0, 'R', 1, 'o', 'native', 0.95, 0],
 ].sort((a, b) => a[1] - b[1]);
@@ -448,7 +493,7 @@ function mkRider(e) {
   const [, , sideS, near, ty, who, win, wait] = e, side = sideS === 'L' ? -1 : 1;
   const spec = who === 'bandit' ? pick(OUTLAWS) : who === 'native' ? pick(NATIVE_RIDERS) : pick(TRAVELERS);
   const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : who === 'bandit' ? pick(['black', 'bay', 'gray']) : pick(['chestnut', 'palomino', 'gray'])];
-  const tx = near ? (side < 0 ? 2 : LW - 66) : (side < 0 ? 66 : LW - 98);
+  const tx = near ? (side < 0 ? 4 : LW - 68) : (side < 0 ? 64 : LW - 96);
   return { near: !!near, side, who, type: ty === 'o' ? 'outlaw' : 'bystander', spec, coat,
     blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : who === 'bandit' ? '#3a2a2a' : '#7a2a2a',
     window: win * diff.mult, wait: !!wait, phase: 'in', age: 0, pt: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
@@ -459,12 +504,13 @@ const revealed = r => !r.wait || r.phase === 'show' || r.phase === 'out';
 
 // ---------------- rider geometry + drawing ----------------
 function riderGeom(r) {
-  const sc = r.near ? 2 : 1, base = r.near ? 154 : 100, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
-  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - 23 * sc - bob, flip = r.side > 0;
-  const sx = hx + (flip ? 18 : 14) * sc - 10 * sc, sy = hy + 7 * sc - 21 * sc;
+  const sc = r.near ? 2 : 1, base = r.near ? 158 : 102, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
+  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - 31 * sc - bob, flip = r.side > 0;
+  // the rider sits on the saddle, twisted around toward the wagon
+  const saddleX = flip ? hx + (32 - 17) * sc : hx + 17 * sc, sx = saddleX - 10 * sc, sy = hy + 10 * sc - 20 * sc;
   return { sc, fr, hx, hy, flip, sx, sy };
 }
-const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 24 * G.sc });
+const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 21 * G.sc });
 function riderPose(r) {
   if (!revealed(r)) return 'idle';
   if (r.type === 'bystander') return 'wave';
@@ -472,15 +518,17 @@ function riderPose(r) {
 }
 function drawRider(r) {
   const G = riderGeom(r), sc = G.sc;
-  if (r.dead) { // horse keeps running, rider tumbles off the back
-    const t = r.deadTime, dir = r.side;
-    horse(G.hx + Math.round(dir * t * 150), G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
-    const fx = G.sx + Math.round(dir * t * 40), fy = G.sy + Math.round(-50 * t + 320 * t * t);
-    blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(dir * Math.min(1, t * 3) * 8));
+  if (r.dead) { // the horse runs off up the trail, the rider tumbles off the back
+    const t = r.deadTime, dir = r.side, k = Math.min(1, t * 1.2);
+    const hx = G.hx + Math.round(dir * t * 60), hy = G.hy - Math.round(t * 40);
+    horseBack(hx, hy, sc, G.fr, r.coat, G.flip, r.blanket, 'back'); horseBack(hx, hy, sc, G.fr, r.coat, G.flip, r.blanket, 'front');
+    const fx = G.sx + Math.round(-dir * t * 30), fy = G.sy + Math.round(-40 * t + 320 * t * t);
+    blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(dir * k * 8));
     return;
   }
+  horseBack(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket, 'back');
   blitFlip(getSprite({ ...r.spec, pose: riderPose(r) }), G.sx, G.sy, sc, G.flip);
-  horse(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
+  horseBack(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket, 'front');
   if (r.type === 'outlaw' && r.phase === 'show') {
     const p = Math.max(0, 1 - r.age / r.window), bx = G.sx + 2 * sc, bw = 16 * sc, by = G.sy - 5;
     R(bx - 1, by - 1, bw + 2, 4, INK); R(bx, by, Math.round(bw * p), 2, p > 0.4 ? '#ffd23f' : '#ff3b30');
@@ -514,9 +562,9 @@ function logObs(o) {
   R(x1 - 2, by - 1, x2 - x1 + 4, Math.max(1, Math.round(h * 0.25)), 'rgba(60,30,10,0.35)');
   R(x1, by - h, x2 - x1, h, '#7a4a24'); R(x1, by - h, x2 - x1, Math.max(1, Math.round(h * 0.25)), '#9a6236'); R(x1, by - Math.max(1, Math.round(h * 0.2)), x2 - x1, Math.max(1, Math.round(h * 0.2)), '#5a3418');
   for (let x = x1 + 6; x < x2 - 4; x += Math.max(4, Math.round(s * 0.18))) R(x, by - h + 1, 1, Math.max(1, h - 2), '#5a3418');
-  R(x2 - Math.max(2, Math.round(h * 0.5)), by - h, Math.max(2, Math.round(h * 0.5)), h, '#c8a070'); // cut end
+  R(x2 - Math.max(2, Math.round(h * 0.5)), by - h, Math.max(2, Math.round(h * 0.5)), h, '#c8a070');
   if (h > 5) R(x2 - Math.round(h * 0.35), by - Math.round(h * 0.6), Math.max(1, Math.round(h * 0.2)), Math.max(1, Math.round(h * 0.2)), '#8a5a30');
-  if (h > 8) { R(x1 + Math.round((x2 - x1) * 0.3), by - h - Math.round(h * 0.5), 2, Math.round(h * 0.5), '#5a3418'); } // broken branch
+  if (h > 8) { R(x1 + Math.round((x2 - x1) * 0.3), by - h - Math.round(h * 0.5), 2, Math.round(h * 0.5), '#5a3418'); }
 }
 function cactusAt(x, by, s) {
   const w = Math.max(1, Math.round(0.16 * s)), h = Math.max(3, Math.round(0.9 * s)), aw = Math.max(1, Math.round(0.2 * s));
@@ -546,16 +594,15 @@ function drawBird(b) {
   if (b.dead) { R(x - 2, y + 2, 5, 1, '#2a2228'); return; }
   if (up) { R(x - 4, y - 3, 3, 3, '#2a2228'); R(x + 1, y - 3, 3, 3, '#2a2228'); } else { R(x - 5, y + 2, 4, 2, '#2a2228'); R(x + 2, y + 2, 4, 2, '#2a2228'); }
 }
-// the team, seen from the driver's bench
+// the wagon team, seen from the driver's bench
 function horseRear(cx, by, Hc, swish) {
-  // seen from the bench: round haunches at the bottom, back + neck stretching away, head and ears at the top
   const top = by - 62;
   const hwAt = y => {
     const d = y - top;
-    if (d < 9) return 5;                                     // head
-    if (d < 22) return 5 + Math.round((d - 9) * 0.25);       // neck
-    if (d < 36) return 8 + Math.round((d - 22) * 0.3);       // withers + back
-    const k = (y - (by - 12)) / 17;                          // haunches
+    if (d < 9) return 5;
+    if (d < 22) return 5 + Math.round((d - 9) * 0.25);
+    if (d < 36) return 8 + Math.round((d - 22) * 0.3);
+    const k = (y - (by - 12)) / 17;
     return Math.max(12, Math.round(21 * Math.sqrt(Math.max(0, 1 - k * k))));
   };
   for (let y = top; y < by; y++) { const hw = hwAt(y); R(cx - hw - 1, y, hw * 2 + 2, 1, INK); }
@@ -563,27 +610,27 @@ function horseRear(cx, by, Hc, swish) {
   for (let y = top; y < by; y++) {
     const hw = hwAt(y), d = y - top;
     R(cx - hw, y, hw * 2, 1, Hc.coat);
-    R(cx + Math.round(hw * 0.5), y, hw - Math.round(hw * 0.5), 1, Hc.dark);                       // shadow side
-    if (d > 36) R(cx - hw + 2, y, Math.max(1, Math.round(hw * 0.35)), 1, Hc.light);               // sun on the left haunch
+    R(cx + Math.round(hw * 0.5), y, hw - Math.round(hw * 0.5), 1, Hc.dark);
+    if (d > 36) R(cx - hw + 2, y, Math.max(1, Math.round(hw * 0.35)), 1, Hc.light);
   }
-  R(cx - 4, top - 4, 2, 4, Hc.coat); R(cx + 2, top - 4, 2, 4, Hc.coat); R(cx - 4, top - 5, 2, 1, INK); R(cx + 2, top - 5, 2, 1, INK); // ears
-  R(cx - 1, top, 2, 22, Hc.mane); R(cx - 2, top + 2, 1, 3, Hc.mane);                                // forelock + mane
-  R(cx - 6, top + 20, 12, 3, '#2a1a10'); R(cx - 5, top + 20, 10, 1, '#c9a040');                      // collar + hames
-  R(cx - 9, top + 30, 18, 4, '#2a1a10'); R(cx - 2, top + 31, 4, 2, '#c9a040');                       // back pad
-  R(cx - hwAt(by - 16), by - 16, hwAt(by - 16) * 2, 2, '#2a1a10');                                  // breeching strap
-  R(cx - 1, by - 26, 2, 4, Hc.dark);                                                                // crease between the haunches
-  const tx = cx + swish; R(tx - 3, by - 24, 6, 6, Hc.mane); R(tx - 2, by - 18, 5, 18, Hc.mane); R(tx - 1, by - 18, 1, 18, shade(Hc.mane, 1.4)); // tail
+  R(cx - 4, top - 4, 2, 4, Hc.coat); R(cx + 2, top - 4, 2, 4, Hc.coat); R(cx - 4, top - 5, 2, 1, INK); R(cx + 2, top - 5, 2, 1, INK);
+  R(cx - 1, top, 2, 22, Hc.mane); R(cx - 2, top + 2, 1, 3, Hc.mane);
+  R(cx - 6, top + 20, 12, 3, '#2a1a10'); R(cx - 5, top + 20, 10, 1, '#c9a040');
+  R(cx - 9, top + 30, 18, 4, '#2a1a10'); R(cx - 2, top + 31, 4, 2, '#c9a040');
+  R(cx - hwAt(by - 16), by - 16, hwAt(by - 16) * 2, 2, '#2a1a10');
+  R(cx - 1, by - 26, 2, 4, Hc.dark);
+  const tx = cx + swish; R(tx - 3, by - 24, 6, 6, Hc.mane); R(tx - 2, by - 18, 5, 18, Hc.mane); R(tx - 1, by - 18, 1, 18, shade(Hc.mane, 1.4));
 }
 function drawTeam() {
   const b = Math.floor(clock * 9) % 2, sw = Math.round(Math.sin(clock * 3) * 2);
   horseRear(132, 178 + b, HORSE_COATS.bay, sw); horseRear(188, 178 + (1 - b), HORSE_COATS.chestnut, -sw);
-  line(52, 180, 126, 137 + b, '#2a1a10'); line(56, 180, 182, 137 + (1 - b), '#2a1a10');             // Eliza's reins
-  R(0, 172, 320, 8, '#6e4224'); R(0, 172, 320, 1, '#9a6236'); R(0, 176, 320, 1, '#5a3418');           // footboard
+  line(52, 180, 126, 137 + b, '#2a1a10'); line(56, 180, 182, 137 + (1 - b), '#2a1a10');
+  R(0, 172, 320, 8, '#6e4224'); R(0, 172, 320, 1, '#9a6236'); R(0, 176, 320, 1, '#5a3418');
   for (const x of [20, 300]) { R(x, 168, 4, 4, '#4a2a14'); }
-  R(40, 174, 18, 6, '#3a4466'); R(46, 172, 10, 3, '#f0c8a0');                                       // Eliza's gloved hands
+  R(40, 174, 18, 6, '#3a4466'); R(46, 172, 10, 3, '#f0c8a0');
 }
 
-// ---------------- the level itself ----------------
+// ---------------- the ride itself ----------------
 const STEER = { l: { x: W - 210, y: H - 108, w: 96, h: 96 }, r: { x: W - 108, y: H - 108, w: 96, h: 96 } };
 function steer(d) {
   RIDE.press[d < 0 ? 'l' : 'r'] = 0.15;
@@ -607,7 +654,7 @@ RUNS.trail = {
     shot: { title: 'BUSHWHACKED!', reason: 'A BANDIT GOT YOU FIRST.', color: '#ff3b30' },
     arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE WAS QUICKER ON THE DRAW.', color: '#ff3b30' },
     crash: { title: 'WAGON WRECK!', reason: 'KEEP AN EYE ON THE TRAIL.', color: '#ffb347' },
-    bystander: { title: 'INNOCENT DOWN!', reason: 'THAT RIDER WAS JUST PASSING THROUGH.', color: '#7fb2ff' },
+    bystander: { title: 'INNOCENT DOWN!', reason: 'WAIT FOR A RIDER TO SHOW HIS HAND.', color: '#7fb2ff' },
   },
   reset() {
     Object.assign(RIDE, { lane: 0, cam: 0, dist: 0, v: RIDE_SPEED[diff.key] || 5, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 } });
@@ -681,7 +728,7 @@ RUNS.trail = {
         hits++; S.n.outlaw++;
         const bonus = r.phase === 'show' ? Math.round(100 * Math.max(0, 1 - r.age / r.window)) : 100;
         addScore(100 + bonus, 'outlaw'); popText(G.sx + 10 * G.sc, G.sy, '+' + (100 + bonus));
-      } else hurt('bystander'); // waving folks, or anyone you shot before they showed their hand
+      } else hurt('bystander'); // settlers, or anyone you shot before they showed their hand
       return true;
     }
     for (const t of RIDE.tumbles) { const T = tumbleGeom(t); if (inBox(x, y, { x: T.x - T.r - 2, y: T.y - T.r - 2, w: T.r * 2 + 4, h: T.r * 2 + 4 })) {
@@ -696,16 +743,13 @@ RUNS.trail = {
     return false;
   },
   draw() {
-    // sky, sun, clouds
     ['#5f9ad6', '#82b4e2', '#abcfee', '#d8e4e8', '#eedcb0'].forEach((c, i) => R(0, i * 14, LW, 14, c));
     disc(262, 18, 9, '#fff6c8'); disc(262, 18, 7, '#fffbe8');
     for (let i = 0; i < 3; i++) { const cx = ((i * 130 + 40 - clock * 3) % 400 + 400) % 400 - 40; R(cx, 14 + i * 9, 30, 4, '#f4f8fc'); R(cx + 6, 11 + i * 9, 16, 3, '#f4f8fc'); }
-    // distant mountains + mesas (parallax with steering only)
     const p1 = Math.round(-RIDE.cam * 5), p2 = Math.round(-RIDE.cam * 10);
     for (let x = -20; x < LW + 20; x += 2) { const h = 10 + Math.round(6 * Math.sin(x * 0.045) + 4 * Math.sin(x * 0.13)); R(x + p1, HZ - h, 2, h, '#9a7a9a'); }
     R(18 + p2, HZ - 22, 50, 22, '#a4513b'); R(26 + p2, HZ - 26, 32, 4, '#a4513b'); R(26 + p2, HZ - 26, 32, 1, '#c06a4a');
     R(236 + p2, HZ - 18, 64, 18, '#b05a40'); R(248 + p2, HZ - 24, 30, 6, '#b05a40'); R(248 + p2, HZ - 24, 30, 1, '#c87a5a');
-    // ground + trail (stripes move toward you = speed)
     for (let y = HZ; y < LH; y++) {
       const z = GND / Math.max(0.5, y - HZ + 0.5), band = Math.floor((z + RIDE.dist) * 0.8) % 2;
       R(0, y, LW, 1, y < HZ + 4 ? '#c8a070' : band ? '#c4914f' : '#bc8a4a');
@@ -713,10 +757,8 @@ RUNS.trail = {
       R(l, y, r - l, 1, band ? '#a87a48' : '#a27444'); R(l - 1, y, 1, 1, '#8a6238'); R(r, y, 1, 1, '#8a6238');
       if (y > HZ + 6 && Math.floor((z + RIDE.dist) * 2) % 3) for (const wx of [-1.3, -0.7, -0.3, 0.3, 0.7, 1.3]) R(Math.round(projX(wx, z)), y, 1, 1, '#946a3e');
     }
-    // telegraph wire between poles
     const poles = RIDE.posts.filter(p => p.pole).sort((a, b) => b.z - a.z);
     for (let i = 0; i + 1 < poles.length; i++) { const a = poleTop(poles[i]), b = poleTop(poles[i + 1]); line(a.x, a.y + 1, b.x, b.y + 1, '#3a2a20'); }
-    // everything on the ground, far to near
     const items = [
       ...RIDE.deco.map(o => [o.z, () => { const s = FOC / o.z * o.s, x = projX(o.wx, o.z), by = projY(o.z); o.kind === 'cactus' ? cactusAt(x, by, s) : o.kind === 'bush' ? bushAt(x, by, s) : boulder(x, by, 0.3 * s, 0.2 * s); }]),
       ...RIDE.posts.map(p => [p.z, () => (p.pole ? drawPole(p) : drawPost(p))]),
@@ -751,9 +793,10 @@ Object.assign(EPITAPHS, {
   arrow: [['HE SAW THE ARROW.', 'THE ARROW SAW', 'HIM FIRST.'], ['HERE LIES A MAN', 'WHO THOUGHT HE WAS', 'OUT OF RANGE.']],
   crash: [['HE SAID', '"WHAT ROCK?"'], ['HE TOOK THE', 'SCENIC ROUTE.', 'THROUGH A BOULDER.'], ['ELIZA WAS DRIVING.', 'HE WAS SUPPOSED', 'TO BE WATCHING.']],
 });
+Object.assign(HURT, { arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE LET FLY BEFORE YOU FIRED.', color: '#ff3b30' } });
 
 // =====================================================================
-//  SCENE: SUNSET AT THE LAKE CABIN (the wagon pulls up)
+//  SUNSET AT AUNT MAE'S CABIN (the wagon pulls up)
 // =====================================================================
 function spokeWheel(cx, cy, r, ang) {
   for (let k = 0; k < 8; k++) { const a = ang + k * Math.PI / 4; line(cx, cy, cx + Math.cos(a) * (r - 1), cy + Math.sin(a) * (r - 1), '#5a3418'); }
@@ -761,60 +804,56 @@ function spokeWheel(cx, cy, r, ang) {
   disc(cx, cy, 2, '#3b2210');
 }
 const WAGON_STOP = 34;
-function wagonSide(x, base, moving) {
+function wagonSide(x, base, moving, ang = -x / 9) {
   x = Math.round(x);
   const wy = base - 24, fr = Math.floor(clock * 7) % 4;
-  // canvas bonnet + hoops
   for (let j = 0; j < 26; j++) { const t = j / 26, inset = Math.round(6 * Math.pow(1 - t, 2)); R(x + 4 + inset, wy - 26 + j, 52 - inset * 2, 1, j < 4 ? '#f8f2e0' : '#ece4cc'); }
   for (const hx of [14, 28, 42]) R(x + hx, wy - 24, 1, 24, '#c8bca0');
-  R(x + 50, wy - 20, 6, 20, '#3a2a20');                                              // dark opening at the front
-  // Eliza + the sheriff on the bench
+  R(x + 50, wy - 20, 6, 20, '#3a2a20');
   ch2Fig({ ...CHARS.newSheriff, pose: 'idle' }, x + 44, wy + 9); ch2Fig({ ...CHARS.eliza, pose: 'idle' }, x + 54, wy + 9);
-  // box
   R(x, wy, 66, 13, '#7a4a24'); R(x, wy, 66, 1, '#9a6236'); R(x, wy + 6, 66, 1, '#5a3418'); R(x, wy + 13, 66, 2, '#4a2a14');
-  R(x + 2, wy + 2, 10, 3, '#c9a040'); signText('PB&J', x + 33, wy + 3, '#f4efe0'); // painted on the side... it's a company wagon
-  // wheels
-  const ang = -x / 9;
+  R(x + 2, wy + 2, 10, 3, '#c9a040'); signText('PB&J', x + 33, wy + 3, '#f4efe0');
   spokeWheel(x + 12, base - 9, 9, ang); spokeWheel(x + 54, base - 7, 7, ang * 1.3);
-  // tongue + team
   R(x + 66, wy + 8, 12, 2, '#5a3418');
   horse(x + 70, base - 25, 1, (fr + 2) % 4, HORSE_COATS.chestnut, false, null, moving);
   horse(x + 76, base - 23, 1, fr, HORSE_COATS.bay, false, null, moving);
   if (moving && Math.floor(clock * 10) % 2) { R(x - 4, base - 3, 4, 2, 'rgba(200,170,120,.6)'); R(x + 34, base - 2, 5, 2, 'rgba(200,170,120,.5)'); }
 }
-function cabinArt() {
+const CABIN_X = 196, CABIN_B = 150;
+function cabinArt(night = 0) {
   ['#3a2f5a', '#6a3a62', '#b04e52', '#e0733f', '#f29a52', '#fbc672'].forEach((c, i) => R(0, i * 15, LW, 15, c));
   disc(150, 86, 13, '#ffd88a'); disc(150, 86, 10, '#ffeab0');
   for (let x = 0; x < LW; x += 2) { const h = 14 + Math.round(8 * Math.sin(x * 0.03 + 1) + 5 * Math.sin(x * 0.09)); R(x, 88 - h, 2, h, '#5a3a5a'); }
   for (let x = 0; x < LW; x += 2) { const h = 6 + Math.round(4 * Math.sin(x * 0.05 + 3)); R(x, 88 - h, 2, h, '#3a2a40'); }
   for (let x = 4; x < LW; x += 9) { const h = 4 + (x * 7) % 5; for (let j = 0; j < h; j++) R(x - (j >> 1), 88 - j, 1 + (j >> 1) * 2, 1, '#241a2a'); }
-  // the lake + sun reflection
   R(0, 88, LW, 30, '#6a5a8a'); for (let y = 90; y < 118; y += 3) R(0, y, LW, 1, '#7a6a9a');
   for (let y = 89; y < 118; y += 2) { const w = 4 + Math.round((y - 88) * 0.6), jx = Math.round(Math.sin(clock * 2 + y) * 2); R(150 - w / 2 + jx, y, w, 1, (y >> 1) % 2 ? '#ffd88a' : '#f29a52'); }
-  // shore, grass, path
   R(0, 116, LW, 64, '#6a6a34'); R(0, 116, LW, 2, '#4a4a24');
   for (let i = 0; i < 60; i++) { const gx = (i * 53) % LW, gy = 122 + (i * 29) % 56; R(gx, gy, 1, 2, '#7e7e40'); }
   for (let y = 150; y < 180; y++) R(0, y, LW, 1, y % 4 ? '#8a6a40' : '#7a5a34');
-  // dock
   R(18, 108, 44, 4, '#6e4224'); for (let x = 20; x < 62; x += 6) R(x, 108, 1, 4, '#4a2a14'); R(22, 112, 2, 6, '#3b2210'); R(56, 112, 2, 6, '#3b2210');
-  // the cabin
-  const cx = 196, cb = 150;
+  const cx = CABIN_X, cb = CABIN_B;
   for (let y = cb - 40; y < cb; y += 5) { R(cx, y, 100, 5, '#7a4a24'); R(cx, y, 100, 1, '#9a6236'); R(cx - 2, y + 1, 3, 3, '#c8a070'); R(cx + 99, y + 1, 3, 3, '#c8a070'); }
   for (let j = 0; j < 22; j++) R(cx - 8 + j * 2, cb - 41 - j, 116 - j * 4, 1, j % 3 ? '#4a2a1a' : '#3a2014');
   R(cx + 74, cb - 64, 10, 26, '#7a7470'); for (let y = cb - 62; y < cb - 40; y += 4) R(cx + 74, y, 10, 1, '#5a5450');
   for (let i = 0; i < 5; i++) { const p = (clock * 0.25 + i / 5) % 1; disc(cx + 79 + Math.round(Math.sin(p * 6 + i) * 3 + p * 10), cb - 68 - Math.round(p * 40), 2 + Math.round(p * 3), `rgba(220,210,220,${0.5 * (1 - p)})`); }
-  R(cx + 16, cb - 30, 16, 14, '#3b2210'); R(cx + 18, cb - 28, 12, 10, Math.floor(clock * 3) % 7 ? '#ffd46a' : '#ffc040'); R(cx + 23, cb - 28, 1, 10, '#3b2210'); R(cx + 18, cb - 24, 12, 1, '#3b2210');
-  for (const [r, a] of [[18, 0.07], [11, 0.09]]) disc(cx + 24, cb - 23, r, `rgba(255,200,100,${a})`);
   R(cx + 44, cb - 30, 14, 30, '#4a2a14'); R(cx + 46, cb - 28, 10, 28, '#5a3418'); R(cx + 54, cb - 15, 2, 2, '#c9a040');
   R(cx - 6, cb - 2, 112, 3, '#5a3418'); for (const px2 of [cx - 4, cx + 36, cx + 70, cx + 102]) R(px2, cb - 34, 2, 32, '#4a2a14'); R(cx - 6, cb - 36, 112, 2, '#4a2a14');
-  R(cx + 66, cb - 10, 10, 8, '#7a4a24'); for (let i = 0; i < 3; i++) disc(cx + 70 + i * 4, cb - 12 - (i % 2) * 3, 2, '#9a6236'); // firewood
-  // big pine on the right
+  R(cx + 66, cb - 10, 10, 8, '#7a4a24'); for (let i = 0; i < 3; i++) disc(cx + 70 + i * 4, cb - 12 - (i % 2) * 3, 2, '#9a6236');
   for (let j = 0; j < 70; j++) R(306 - (j >> 2), 150 - 72 + j, 2 + (j >> 1), 1, j % 6 < 4 ? '#2a3a2a' : '#223022');
   R(304, 150, 4, 6, '#3b2210');
-  // fireflies
+  if (night > 0) { // dusk -> night: darken everything, then stars + moon, window keeps glowing
+    R(0, 0, LW, LH, `rgba(8,10,34,${0.78 * night})`);
+    ctx.globalAlpha = night;
+    for (const [sx, sy] of [[20, 8], [44, 20], [70, 6], [102, 26], [128, 12], [176, 8], [210, 22], [236, 6], [262, 18], [290, 10], [306, 30], [88, 40]]) R(sx, sy, 1, 1, Math.floor(clock * 2 + sx) % 6 ? '#f4efe0' : '#8a90b0');
+    disc(60, 34, 6, '#f4efd0'); disc(63, 32, 5, `rgba(20,22,50,1)`);
+    ctx.globalAlpha = 1;
+  }
+  R(cx + 16, cb - 30, 16, 14, '#3b2210'); R(cx + 18, cb - 28, 12, 10, Math.floor(clock * 3) % 7 ? '#ffd46a' : '#ffc040'); R(cx + 23, cb - 28, 1, 10, '#3b2210'); R(cx + 18, cb - 24, 12, 1, '#3b2210');
+  for (const [r, a] of [[18, 0.07 + 0.05 * night], [11, 0.09 + 0.06 * night]]) disc(cx + 24, cb - 23, r, `rgba(255,200,100,${a})`);
   for (let i = 0; i < 8; i++) if (Math.floor(clock * 2 + i * 1.7) % 3 === 0) R(20 + (i * 41) % 280, 120 + (i * 17) % 30 + Math.round(Math.sin(clock + i) * 2), 1, 1, '#fff08a');
 }
-const CABIN_LIFT = 36; // during the cutscene the scene sits higher so the dialog box doesn't cover it
+const CABIN_LIFT = 36; // during cutscenes the scene sits higher so the dialog box doesn't cover it
 SETS.cabinLake = { bg: () => { R(0, 0, LW, LH, '#8a6a40'); g.save(); g.translate(0, -CABIN_LIFT); cabinArt(); g.restore(); }, fg: () => {} };
 CUTS.ch2Cabin = {
   set: 'cabinLake', actors: [], tune: 'morning',
@@ -825,25 +864,174 @@ CUTS.ch2Cabin = {
   },
   lines: [
     ['narr', 'BY SUNDOWN, THE WAGON PULLS UP TO AN OLD CABIN BY THE LAKE.'],
-    ['eliza', "NICE SHOOTIN', SHERIFF. WE'LL REST HERE TONIGHT. CRYSTAL CANYON IS ONE MORE DAY'S RIDE."],
+    ['eliza', "THIS CABIN BELONGS TO MY AUNT MAE. WE'LL STAY HERE TONIGHT."],
+    ['eliza', "WILL YOU KEEP WATCH THROUGH THE NIGHT, SHERIFF? I'LL MAKE SOME COFFEE AND BRING YOU A CUP."],
+  ],
+};
+
+// ---- night falls: the sheriff on the roof with his coffee, then fade to black
+const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. THE SHERIFF SETTLES IN ON THE ROOF TO KEEP WATCH.';
+function roofWatcher() { // the sheriff sitting on the ridge of the roof, mug in hand
+  const x = CABIN_X + 46, y = CABIN_B - 62;
+  ch2Fig({ ...CHARS.newSheriff, pose: 'drink' }, x, y + 30);
+  steam(x + 15, y + 6, 0.5);
+}
+SCENES.ch2Night = {
+  tune: null,
+  enter() { this.textT = 0; this.doneT = 0; this.cricket = 0.5; this.out = false; this.outT = 0; },
+  shown() { return Math.floor(this.textT * 30); },
+  update(dt) {
+    if (this.t > 1.2) this.textT += dt;
+    if (this.shown() >= NIGHT_TEXT.length) { this.doneT += dt; if (this.doneT > 3) this.out = true; }
+    if (this.out) { this.outT += dt; if (this.outT > 2.2) nextStep(); }
+    this.cricket -= dt;
+    if (this.cricket <= 0) { for (let i = 0; i < 3; i++) setTimeout(() => tone('sine', 4300, 4250, 0.035, 0.025), i * 70); this.cricket = 0.8 + Math.random() * 1.4; }
+  },
+  tap() { if (this.shown() < NIGHT_TEXT.length) this.textT = 99; else if (!this.out) this.out = true; else this.outT = Math.max(this.outT, 1.8); },
+  key() { this.tap(); },
+  world() {
+    g.save(); g.translate(0, -CABIN_LIFT); R(0, 0, LW, LH + CABIN_LIFT, '#8a6a40');
+    cabinArt(Math.min(1, this.t / 2)); wagonSide(WAGON_STOP, 150, false); roofWatcher();
+    if (this.t > 0) R(0, 0, LW, LH + CABIN_LIFT, `rgba(8,10,34,${0.35 * Math.min(1, this.t / 2)})`);
+    g.restore();
+  },
+  ui() { narrBox(NIGHT_TEXT, this.shown()); fadeBlack(this.out ? this.outT / 1.8 : 0); },
+};
+
+// =====================================================================
+//  THE NEXT MORNING: SURROUNDED — the view from the cabin roof
+// =====================================================================
+function pine(x, by, h, c1 = '#2a4a32', c2 = '#223c2a') {
+  R(x - 2, by - Math.round(h * 0.2), 4, Math.round(h * 0.2), '#4a2a14');
+  for (let j = 0; j < h * 0.85; j++) { const w = Math.round(2 + j * 0.42) * (j % 7 < 5 ? 1 : 0.8); R(Math.round(x - w / 2), by - Math.round(h) + j, Math.max(1, Math.round(w)), 1, j % 7 < 5 ? c1 : c2); }
+}
+function bushBlob(cx, by, w, h) {
+  for (let j = 0; j < h; j++) { const t = (j - h) / h, hw = Math.round((w / 2) * Math.sqrt(Math.max(0, 1 - t * t * 0.8))); R(cx - hw, by - h + j, hw * 2, 1, j < 2 ? '#7a9a4a' : '#4e7a34'); }
+  for (let i = 0; i < w; i += 3) { R(cx - w / 2 + i, by - h + 1 + ((i * 7) % 4), 2, 1, '#9aba5a'); R(cx - w / 2 + i + 1, by - h + 5 + ((i * 5) % 5), 1, 1, '#3a6026'); }
+  R(cx - w / 2 + 2, by - 1, w - 4, 1, '#2e4a20');
+}
+function siegeBg() {
+  // early-morning sky
+  ['#8ab8e0', '#a8cce8', '#c8dcec', '#f0dcc0', '#f8c890'].forEach((c, i) => R(0, i * 7, LW, 7, c));
+  disc(42, 30, 8, '#fff4c8');
+  // the lake beyond the yard + far hills
+  for (let x = 0; x < LW; x += 2) { const h = 6 + Math.round(4 * Math.sin(x * 0.04 + 2)); R(x, 34 - h, 2, h, '#7a8aa8'); }
+  R(0, 34, LW, 8, '#7aa0c8'); for (let y = 35; y < 42; y += 2) R(0, y, LW, 1, '#90b4d8');
+  // treeline behind the yard
+  for (let x = -4; x < LW; x += 9) pine(x + ((x * 13) % 5), 52, 18 + (x * 7) % 9, '#2e5038', '#24432e');
+  // the yard
+  R(0, 50, LW, 100, '#8a9a4a');
+  for (let y = 50; y < 150; y += 3) for (let x = (y * 7) % 11; x < LW; x += 11) R(x, y, 1, 1, '#7a8a3a');
+  for (let y = 64; y < 150; y++) { const w = 18 + Math.round((y - 64) * 0.9), cx = 160; R(cx - w / 2, y, w, 1, (y >> 1) % 3 ? '#b08a58' : '#a88050'); } // path to the door
+  // back fence with bottles on the rail
+  R(112, 52, 60, 2, '#7a5a34'); R(112, 58, 60, 2, '#7a5a34'); for (const fx of [112, 132, 152, 170]) R(fx, 50, 2, 12, '#5a3a20');
+  // stump + chopping axe
+  R(178, 100, 12, 6, '#7a4a24'); R(178, 100, 12, 2, '#c8a070'); R(186, 92, 1, 9, '#7a5a34'); R(184, 92, 4, 3, '#a8a8b0');
+  // a few far pines in the yard corners
+  pine(10, 120, 70); pine(312, 124, 74); pine(28, 100, 44, '#335a3c', '#284a30');
+}
+function siegeFg() {
+  bushBlob(47, 88, 32, 16);                                                         // bushL
+  boulder(109, 86, 36, 18);                                                         // rock
+  // parked wagon (side view, no team) — they're hiding behind it
+  R(150, 64, 40, 14, '#7a4a24'); R(150, 64, 40, 1, '#9a6236'); R(150, 70, 40, 1, '#5a3418'); spokeWheel(156, 80, 6, 0.3); spokeWheel(184, 80, 6, 1.1);
+  for (let j = 0; j < 14; j++) R(152 + (j < 3 ? 3 - j : 0), 50 + j, 36 - (j < 3 ? (3 - j) * 2 : 0), 1, '#ece4cc');
+  // woodpile
+  for (let r = 0; r < 4; r++) for (let i = 0; i < 6 - r; i++) { const lx = 208 + r * 3 + i * 6, ly = 84 - r * 5; disc(lx + 3, ly, 3, '#8a5530'); disc(lx + 3, ly, 1, '#c8a070'); }
+  bushBlob(275, 88, 32, 16);                                                        // bushR
+  bushBlob(75, 128, 38, 18);                                                        // front bush left
+  // rain barrel + trough near the front right
+  R(228, 112, 26, 16, '#6e4224'); R(228, 112, 26, 2, '#9a6236'); R(228, 118, 26, 1, '#3b2210'); R(228, 124, 26, 1, '#3b2210'); R(230, 113, 22, 1, '#6a8ab0');
+  // the well
+  R(134, 116, 32, 14, '#8a8478'); for (let i = 0; i < 4; i++) R(134 + i * 8 + ((i % 2) * 2), 118 + (i % 2) * 5, 6, 3, '#a8a298'); R(134, 116, 32, 2, '#b8b2a8');
+  R(136, 92, 2, 24, '#5a3a20'); R(162, 92, 2, 24, '#5a3a20'); R(132, 90, 36, 3, '#6e4224'); R(149, 96, 1, 12, '#c8b890'); R(146, 106, 7, 5, '#7a5a34');
+  // the cabin roof you're standing on
+  for (let y = 148; y < LH; y++) { const sh = (y - 148) >> 2; R(0, y, LW, 1, (y % 4 === 0) ? '#2a160c' : '#4a2a1a'); for (let x = (sh % 2) * 9; x < LW; x += 18) R(x, y, 1, 1, '#2a160c'); }
+  R(0, 147, LW, 2, '#6e4224');
+  R(272, 118, 22, 62, '#7a7470'); for (let y = 120; y < LH; y += 5) R(272, y, 22, 1, '#5a5450'); R(270, 116, 26, 4, '#8a8480');
+  for (let i = 0; i < 4; i++) { const p = (clock * 0.3 + i / 4) % 1; disc(283 + Math.round(Math.sin(p * 6 + i) * 3), 112 - Math.round(p * 40), 2 + Math.round(p * 3), `rgba(230,225,225,${0.45 * (1 - p)})`); }
+  // last night's coffee, still on the shingles
+  speckled(30, 158, 9, 10, '#3a5a8a'); R(30, 158, 9, 1, '#e8e8f0'); R(39, 160, 2, 1, '#3a5a8a'); R(40, 160, 1, 5, '#3a5a8a'); R(39, 164, 2, 1, '#3a5a8a');
+}
+SETS.cabinSiege = { bg: siegeBg, fg: siegeFg, outdoor: true };
+const NATIVE_FOES = NATIVE_RIDERS;
+LEVELS.push({
+  label: 'CH. 2', name: 'THE CABIN', set: 'cabinSiege',
+  spots: {
+    bushL: { x: 34, y: 52, w: 26, h: 36, a: 'bottom' }, rock: { x: 96, y: 50, w: 26, h: 36, a: 'bottom' },
+    wagon: { x: 157, y: 26, w: 26, h: 36, a: 'bottom' }, wood: { x: 210, y: 46, w: 28, h: 36, a: 'bottom' },
+    bushR: { x: 262, y: 52, w: 26, h: 36, a: 'bottom' }, bushF: { x: 62, y: 92, w: 26, h: 36, a: 'bottom' },
+    well: { x: 137, y: 92, w: 26, h: 36, a: 'bottom' }, barrel: { x: 228, y: 90, w: 26, h: 36, a: 'bottom' },
+  },
+  // [time, spot, 'o' bandit (gun) / 'n' native (bow), seconds before they fire]
+  events: [[1.0, 'bushL', 'o', 1.9], [2.4, 'rock', 'n', 1.8], [3.6, 'bushR', 'o', 1.8], [4.6, 'wagon', 'n', 1.7], [5.4, 'well', 'o', 1.7],
+           [6.6, 'bushF', 'n', 1.6], [7.4, 'wood', 'o', 1.6], [8.4, 'barrel', 'n', 1.5], [8.8, 'bushL', 'o', 1.5], [10.0, 'rock', 'o', 1.5],
+           [10.6, 'bushR', 'n', 1.4], [11.8, 'wagon', 'o', 1.4], [12.2, 'well', 'n', 1.4], [13.4, 'bushF', 'o', 1.3], [13.8, 'wood', 'n', 1.3],
+           [15.0, 'barrel', 'o', 1.3], [15.4, 'bushL', 'n', 1.25], [16.4, 'rock', 'o', 1.25], [16.8, 'bushR', 'o', 1.25], [17.8, 'wagon', 'n', 1.2],
+           [18.6, 'well', 'o', 1.2], [19.0, 'bushF', 'n', 1.2], [20.2, 'wood', 'o', 1.15], [20.6, 'barrel', 'n', 1.15], [21.8, 'bushL', 'o', 1.1],
+           [22.2, 'bushR', 'n', 1.1], [23.4, 'rock', 'o', 1.05], [23.8, 'wagon', 'o', 1.05], [24.2, 'well', 'n', 1.05]],
+  spec: (ty, n) => (ty === 'n' ? { ...NATIVE_FOES[n % NATIVE_FOES.length], pose: 'bow' } : { ...OUTLAWS[n % OUTLAWS.length], pose: 'aim' }),
+  props: [{ k: 'bottle', x: 120, y: 44, c: '#3a7a3a', layer: 'bg' }, { k: 'bottle', x: 140, y: 44, c: '#7a4a1a', layer: 'bg' }, { k: 'bottle', x: 160, y: 44, c: '#8a2a2a', layer: 'bg' },
+          { k: 'can', x: 182, y: 95, layer: 'bg' }, { k: 'jug', x: 222, y: 60, layer: 'fg' }, { k: 'lantern', x: 150, y: 92, layer: 'fg' }],
+});
+const CABIN_LEVEL = LEVELS.length - 1;
+CUTS.ch2Dawn = {
+  set: 'cabinSiege', actors: [],
+  lines: [
+    ['narr', 'THE NEXT MORNING, THE SHERIFF WAKES UP ON THE ROOF. THE COFFEE IS COLD.'],
+    ['narr', 'BANDITS AND NATIVES HAVE SURROUNDED THE CABIN.'],
+    ['eliza', "SHERIFF! THEY'RE HIDIN' ALL OVER THE YARD! DON'T LET 'EM REACH THE DOOR!"],
   ],
 };
 
 // =====================================================================
-//  TO BE CONTINUED (placeholder until the next part is built)
+//  RIDING ON ALONG THE LAKE (end of chapter 2)
+// =====================================================================
+function lakeRideArt() {
+  const s = clock * 40; // scroll speed
+  ['#7ab0e0', '#9ac4e8', '#bcd8ee', '#dceaf0'].forEach((c, i) => R(0, i * 10, LW, 10, c));
+  disc(250, 16, 8, '#fff6c8');
+  for (let i = 0; i < 3; i++) { const cx = ((i * 140 - clock * 4) % 420 + 420) % 420 - 50; R(cx, 10 + i * 7, 34, 4, '#f4f8fc'); R(cx + 8, 7 + i * 7, 18, 3, '#f4f8fc'); }
+  for (let x = 0; x < LW; x += 2) { const wx = x + s * 0.1, h = 12 + Math.round(7 * Math.sin(wx * 0.03) + 4 * Math.sin(wx * 0.11)); R(x, 44 - h, 2, h, '#8a90b0'); }
+  for (let x = 0; x < LW; x += 2) { const wx = x + s * 0.25; for (let j = 0; j < 6 + Math.round(3 * Math.sin(wx * 0.2)); j++) R(x, 46 - j, 2, 1, '#3e6a4a'); }
+  R(0, 46, LW, 26, '#5a8ac0'); for (let y = 48; y < 72; y += 3) for (let x = ((y * 13 - s * 0.5) % 24 + 24) % 24 - 24; x < LW; x += 24) R(Math.round(x), y, 8, 1, '#7aa8d8');
+  disc(250, 60, 3, '#fff6c8');
+  // near shore: reeds, the road, wildflowers
+  R(0, 72, LW, 4, '#7a9a4a');
+  for (let i = 0; i < 40; i++) { const rx = ((i * 37 - s * 0.8) % 340 + 340) % 340 - 10; R(Math.round(rx), 66 + (i % 3), 1, 8, '#4a6a2a'); R(Math.round(rx), 65 + (i % 3), 1, 2, '#7a5a34'); }
+  R(0, 76, LW, 30, '#b08a58'); for (let i = 0; i < 30; i++) { const dx = ((i * 53 - s) % 340 + 340) % 340 - 10; R(Math.round(dx), 80 + (i * 7) % 24, 3, 1, '#9a7448'); }
+  R(0, 106, LW, 74, '#6e8a3a'); for (let i = 0; i < 40; i++) { const fx = ((i * 29 - s * 1.3) % 340 + 340) % 340 - 10; R(Math.round(fx), 108 + (i * 11) % 8, 1, 1, ['#e8c040', '#f4efe0', '#c04a6a'][i % 3]); }
+  wagonSide(118, 102, true, clock * 4.5);
+}
+SETS.lakeRide = { bg: lakeRideArt, fg: () => {} };
+CUTS.ch2Lake = {
+  set: 'lakeRide', actors: [], tune: 'morning',
+  lines: [
+    ['narr', 'WITH THE YARD QUIET AGAIN, THEY HITCH UP THE TEAM AND RIDE ON ALONG THE LAKE.'],
+    ['eliza', "CRYSTAL CANYON'S JUST PAST THOSE HILLS. HANG ON, JEB. WE'RE COMIN'."],
+  ],
+};
+
+// =====================================================================
+//  END OF CHAPTER 2
 // =====================================================================
 SCENES.ch2End = {
   tune: 'morning',
-  world() { cabinArt(); wagonSide(WAGON_STOP, 150, false); },
+  enter() { saveBest(); sfx.win(); },
+  world() { lakeRideArt(); },
   ui() {
-    dim(0.5); panel(W / 2 - 330, 150, 660, 200);
-    text('TO BE CONTINUED...', W / 2, 180, 32, '#ffd23f', 'center');
-    text('NEXT: CRYSTAL CANYON', W / 2, 244, 16, '#ffffff', 'center');
-    if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 296, 16, '#f3d18b', 'center');
+    dim(0.6); panel(W / 2 - 330, 70, 660, 400);
+    text('END OF CHAPTER 2', W / 2, 98, 32, '#ffd23f', 'center');
+    const acc = shots ? Math.round(hits / shots * 100) : 0;
+    [['OUTLAWS DROPPED', S.n.outlaw], ['HATS SHOT', S.n.hat], ['BOTTLES', S.n.bottle], ['BIRDS & OTHER TARGETS', S.n.obj], ['ACCURACY', acc + '%']]
+      .forEach(([k, v], i) => { text(k, W / 2 - 280, 170 + i * 36, 16, '#ffffff'); text(String(v), W / 2 + 280, 170 + i * 36, 16, '#f3d18b', 'right'); });
+    text('SCORE ' + score, W / 2, 364, 24, '#ffffff', 'center');
+    text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 404, 16, '#ffd23f', 'center');
+    if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 440, 16, '#f3d18b', 'center');
   },
-  tap() { if (this.t > 0.5) toTitle(); },
+  tap() { if (this.t > 0.8) toTitle(); },
   key() { this.tap(); },
 };
 
 // ---------------- STORY ORDER (chapter 2) ----------------
-const STORY2 = [{ cut: 'ch2Saloon' }, { run: 'trail' }, { cut: 'ch2Cabin' }, { scene: 'ch2End' }];
+const STORY2 = [{ cut: 'ch2Saloon' }, { run: 'trail' }, { cut: 'ch2Cabin' }, { scene: 'ch2Night' }, { cut: 'ch2Dawn' }, { level: CABIN_LEVEL }, { cut: 'ch2Lake' }, { scene: 'ch2End' }];
