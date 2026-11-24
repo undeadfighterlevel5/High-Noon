@@ -72,13 +72,9 @@ function narrBox(txt, n) { // narrator box in the dialog style
 const ROOM_TEXT = 'AFTER A LONG DAY AND A HEARTY STEAK AND POTATO DINNER, THE NEW SHERIFF TAKES A LONG REST.';
 const QUILT = ['#b04a3a', '#d8b060', '#4a6a8a', '#e8e0cc', '#6a8a4a'];
 function sleeper() {
-  // pillow
   R(160, 79, 24, 10, '#f4efe0'); R(160, 79, 24, 1, '#ffffff'); R(160, 88, 24, 1, '#c8c0b0');
-  // black hair on the pillow, peeking out from under the hat
   R(160, 82, 5, 6, '#1b1410'); R(162, 88, 3, 1, '#1b1410');
-  // hat resting over his face
   R(162, 81, 22, 2, '#6b4a2a'); R(161, 80, 2, 1, '#6b4a2a'); R(183, 80, 2, 1, '#6b4a2a'); R(166, 75, 14, 6, '#6b4a2a'); R(166, 79, 14, 1, '#3b2210'); R(168, 76, 2, 2, '#8a6a4a');
-  // quilt: one smooth mound from shoulders to feet, gently rising and falling
   const b = (Math.sin(clock * 1.6) + 1) / 2;
   for (let x = 178; x < 270; x++) {
     const k = (x - 178) / 91, top = 86 - Math.round((x < 228 ? 8 + b : 5) * Math.sin(Math.PI * Math.min(1, k * 1.1)));
@@ -88,15 +84,13 @@ function sleeper() {
     }
     R(x, top, 1, 1, '#3b2210');
   }
-  R(184, 78, 1, 22, '#c8c0b0'); // fold of the sheet
+  R(184, 78, 1, 22, '#c8c0b0');
 }
 function roomArt(lampOn) {
-  // wallpaper + ceiling beam
   R(0, 0, 320, 112, '#3e5654');
   for (let x = 0; x < 320; x += 12) R(x, 0, 4, 108, '#46605e');
   for (let y = 14; y < 104; y += 14) for (let x = 8 + ((y / 14) % 2) * 6; x < 320; x += 12) { R(x, y - 1, 1, 1, '#6a8a74'); R(x - 1, y, 3, 1, '#6a8a74'); R(x, y + 1, 1, 1, '#6a8a74'); }
   R(0, 0, 320, 7, '#3b2210'); R(0, 7, 320, 1, '#5a3418');
-  // window: night sky, moon, sleeping town
   R(24, 24, 60, 58, '#4a2a14'); R(27, 27, 54, 52, '#141c38');
   for (const [sx, sy] of [[31, 31], [40, 44], [47, 33], [33, 50], [58, 30], [75, 47], [70, 56], [36, 39]]) R(sx, sy, 1, 1, Math.floor(clock * 2 + sx) % 5 ? '#f4efe0' : '#8a90b0');
   disc(68, 38, 6, '#f4efd0'); disc(71, 36, 5, '#141c38');
@@ -104,36 +98,29 @@ function roomArt(lampOn) {
   R(53, 27, 2, 52, '#4a2a14'); R(27, 52, 54, 2, '#4a2a14'); R(22, 82, 64, 3, '#6e4224');
   R(14, 18, 80, 2, '#c9a040');
   for (const cx of [18, 80]) { R(cx, 20, 10, 66, '#7a2a2a'); R(cx + 3, 20, 1, 66, '#5a1a1a'); R(cx + 7, 20, 1, 66, '#5a1a1a'); }
-  // WANTED poster with a big red X (somebody already took care of him)
   R(100, 30, 22, 28, '#ecd8a4'); R(104, 35, 14, 3, '#1b1410'); R(106, 38, 10, 8, '#c98a5a'); R(107, 45, 8, 3, '#1b1410'); R(104, 52, 14, 1, '#5a3418'); R(104, 54, 10, 1, '#5a3418');
   line(101, 31, 121, 57, '#c0302b'); line(102, 31, 122, 57, '#c0302b'); line(121, 31, 101, 57, '#c0302b'); line(122, 31, 102, 57, '#c0302b');
-  // baseboard + floor + rug
   R(0, 106, 320, 6, '#3b2210'); R(0, 112, 320, 68, '#6e4224');
   for (const y of [116, 121, 127, 134, 142, 151, 161, 172]) R(0, y, 320, 1, '#5a3418');
   R(146, 116, 120, 16, '#7a2a2a'); R(149, 118, 114, 12, '#a8503a'); for (let x = 152; x < 260; x += 8) R(x, 123, 4, 2, '#e2b33c');
-  // bed frame + sheet
   R(150, 58, 8, 54, '#5a3418'); R(150, 58, 8, 2, '#9a6236'); disc(154, 55, 3, '#9a6236');
   R(158, 96, 112, 6, '#4a2a14'); R(160, 102, 4, 10, '#3b2210'); R(264, 102, 4, 10, '#3b2210');
   R(158, 88, 112, 8, '#e8e0cc');
   sleeper();
   R(270, 76, 8, 36, '#5a3418'); R(270, 76, 8, 2, '#9a6236'); disc(274, 73, 3, '#9a6236');
-  // gun belt hanging off the headboard
   R(144, 60, 2, 20, '#4a2a14'); R(144, 60, 8, 2, '#4a2a14'); R(141, 76, 8, 13, '#3b2210'); R(142, 72, 4, 5, '#b8b8c0');
-  // boots: one standing, one tipped over
   R(284, 96, 6, 14, '#4a2a14'); R(284, 108, 11, 4, '#4a2a14'); R(286, 98, 1, 10, '#6a4020');
   R(298, 106, 16, 6, '#4a2a14'); R(310, 101, 5, 5, '#4a2a14'); R(300, 107, 10, 1, '#6a4020');
-  // nightstand: lamp + a plate with nothing left but a T-bone
   R(116, 88, 30, 3, '#8a5530'); R(118, 91, 26, 21, '#6e4224'); R(122, 96, 18, 6, '#5a3418'); R(130, 98, 2, 2, '#c9a040');
   R(133, 86, 12, 2, '#f4efe0'); R(135, 84, 7, 2, '#f0e8d8'); R(137, 83, 2, 1, '#f0e8d8'); R(144, 84, 1, 3, '#b8b8c0');
   R(120, 84, 10, 4, '#c9a040'); R(121, 78, 8, 6, '#8ab0a0'); R(122, 67, 6, 11, '#b8ccc8'); R(122, 67, 1, 11, '#e0ecea');
   if (lampOn) { const fh = 4 + (Math.floor(clock * 9) % 3 === 0 ? 1 : 0); R(124, 76 - fh, 2, fh, '#ffd23f'); R(124, 75, 2, 1, '#ff9a3a'); }
-  // lighting
   if (lampOn) {
     R(0, 0, 320, 180, 'rgba(10,8,30,0.28)');
     for (const [r, a] of [[70, 0.05], [48, 0.06], [30, 0.07], [16, 0.08]]) disc(125, 72, r, `rgba(255,190,110,${a})`);
   } else {
     R(0, 0, 320, 180, 'rgba(4,6,22,0.68)');
-    for (let k = 0; k < 40; k++) R(28 + k, 112 + Math.floor(k / 2), 40, 1, 'rgba(150,170,230,0.10)'); // moonbeam on the floor
+    for (let k = 0; k < 40; k++) R(28 + k, 112 + Math.floor(k / 2), 40, 1, 'rgba(150,170,230,0.10)');
   }
 }
 SCENES.ch2Room = {
@@ -146,7 +133,7 @@ SCENES.ch2Room = {
       if (this.shown() >= ROOM_TEXT.length) { this.doneT += dt; if (this.doneT > 4) this.goOut(); }
     } else {
       const before = this.outT; this.outT += dt;
-      if (before < 0.6 && this.outT >= 0.6) noise(0.18, 0.12, 900); // *puff* goes the lamp
+      if (before < 0.6 && this.outT >= 0.6) noise(0.18, 0.12, 900);
       if (this.outT > 3.3) startScene('ch2Title');
     }
     this.cricket -= dt;
@@ -160,7 +147,7 @@ SCENES.ch2Room = {
   key() { this.tap(); },
   world() { roomArt(!(this.phase === 'out' && this.outT >= 0.6)); },
   ui() {
-    for (let i = 0; i < 3; i++) { // Zzz drifting up from under the hat
+    for (let i = 0; i < 3; i++) {
       const p = (clock * 0.45 + i / 3) % 1;
       ctx.globalAlpha = (1 - p) * (this.phase === 'out' ? Math.max(0, 1 - this.outT) : 1);
       text('Z', 540 + p * 50 + Math.sin(p * 6) * 8, 200 - p * 90, 16 + Math.round(p * 2) * 8, '#f4efe0', 'center');
@@ -182,53 +169,40 @@ function gingham(x, y, w, h, s) {
 }
 function speckled(x, y, w, h, c) { R(x, y, w, h, c); for (let j = 1; j < h; j += 3) for (let i = 1 + (j % 2); i < w; i += 4) R(x + i, y + j, 1, 1, '#dfe6f0'); }
 function breakfastArt() {
-  // log cabin wall
   for (let y = 0; y < 96; y += 10) { R(0, y, 320, 10, '#8a5a30'); R(0, y, 320, 1, '#a8703c'); R(0, y + 8, 320, 2, '#5a3418'); }
-  for (const [x, y] of [[30, 12], [120, 42], [200, 22], [280, 82], [60, 72], [170, 82]]) R(x, y + 3, 6, 2, '#6e4224'); // knots
-  // window with sunrise over the mesas
+  for (const [x, y] of [[30, 12], [120, 42], [200, 22], [280, 82], [60, 72], [170, 82]]) R(x, y + 3, 6, 2, '#6e4224');
   R(220, 12, 84, 64, '#4a2a14');
   ['#9ec8e8', '#cfe3ee', '#fbe0b0', '#f6c27a'].forEach((c, i) => R(223, 15 + i * 14, 78, 14, c));
   disc(266, 64, 9, '#fff2b0'); R(223, 62, 78, 11, '#c07a5a'); R(232, 58, 22, 4, '#c07a5a'); R(274, 56, 16, 6, '#a86a4a'); R(223, 70, 78, 3, '#8a5a3a');
   R(261, 15, 2, 58, '#4a2a14'); R(223, 43, 78, 2, '#4a2a14'); R(218, 76, 88, 3, '#6e4224');
   for (const cx of [212, 298]) { gingham(cx, 8, 12, 70, 3); }
   R(208, 6, 104, 2, '#3b2210');
-  // horseshoe for luck (open end up, so the luck doesn't run out)
   R(40, 16, 2, 9, '#8a8a96'); R(52, 16, 2, 9, '#8a8a96'); R(42, 25, 10, 2, '#8a8a96'); R(41, 24, 1, 1, '#8a8a96'); R(52, 24, 1, 1, '#8a8a96'); R(46, 12, 2, 3, '#3b2210');
-  // shelf: flour sack, tins, jar
   R(14, 46, 84, 3, '#5a3418'); R(18, 49, 2, 6, '#3b2210'); R(90, 49, 2, 6, '#3b2210');
   R(20, 32, 16, 14, '#e8dcc0'); R(22, 30, 12, 3, '#e8dcc0'); R(24, 38, 8, 3, '#8a5a30');
   R(42, 36, 10, 10, '#a8a8b0'); R(42, 38, 10, 4, '#c0302b'); R(56, 38, 9, 8, '#a8a8b0'); R(56, 40, 9, 3, '#3a6a3a');
   R(70, 34, 10, 12, '#d8eef0'); R(70, 34, 10, 2, '#8a5a30'); R(72, 38, 6, 7, '#e2b33c');
-  // sunbeam + dust motes
   for (let k = 0; k < 64; k++) R(214 - k * 1.3, 76 + k * 0.9, 46, 1, 'rgba(255,240,190,0.07)');
   for (let i = 0; i < 7; i++) { const p = (clock * 0.05 + i * 0.143) % 1; R(Math.round(200 - p * 70 + Math.sin(clock + i) * 3), Math.round(80 + p * 40), 1, 1, 'rgba(255,250,220,0.8)'); }
-  // table: gingham top (3/4 view) + hanging skirt
   R(0, 92, 320, 88, '#3b2210');
   gingham(6, 96, 308, 24, 4); gingham(6, 120, 308, 32, 6); R(6, 120, 308, 1, 'rgba(0,0,0,0.25)');
   for (let x = 6; x < 314; x += 12) R(x + 4, 152, 4, 2, '#b02a26');
-  // coffee pot (blue enamelware) + steam
   speckled(42, 72, 22, 34, '#3a5a8a'); speckled(46, 66, 14, 6, '#3a5a8a'); R(51, 62, 4, 4, '#2a2a2a'); R(45, 76, 2, 26, '#6a8ab8');
   line(64, 84, 72, 74, '#3a5a8a'); line(64, 85, 73, 75, '#3a5a8a'); line(64, 86, 73, 76, '#3a5a8a');
   R(36, 76, 6, 2, '#2a2a2a'); R(36, 76, 2, 22, '#2a2a2a'); R(36, 96, 6, 2, '#2a2a2a'); R(40, 104, 26, 3, 'rgba(0,0,0,0.2)');
   steam(73, 72, 0);
-  // fork
   R(86, 104, 14, 1, '#c8c8d0'); R(100, 103, 4, 1, '#c8c8d0'); R(100, 105, 4, 1, '#c8c8d0'); R(100, 104, 4, 1, '#c8c8d0');
-  // plate + pancake stack + butter + syrup
   R(106, 102, 88, 6, '#f4efe0'); R(110, 100, 80, 2, '#f4efe0'); R(110, 108, 80, 2, '#d8d0c0'); R(104, 110, 92, 2, 'rgba(0,0,0,0.18)');
   for (let i = 0; i < 6; i++) { const ox = [0, 1, -1, 1, 0, -1][i], y = 97 - i * 5; R(120 + ox, y, 44, 5, '#d8a050'); R(120 + ox, y, 44, 1, '#f0c070'); R(120 + ox, y + 4, 44, 1, '#a8702c'); }
   R(119, 70, 46, 2, '#8a3a10'); R(122, 72, 2, 11, '#8a3a10'); R(160, 72, 2, 16, '#8a3a10'); R(141, 72, 2, 7, '#8a3a10'); R(160, 100, 8, 2, '#a04a14');
   R(136, 65, 11, 5, '#fff2a0'); R(137, 65, 4, 1, '#ffffff'); R(141, 70, 3, 1, '#fff2a0');
-  // egg + bacon
   R(168, 101, 20, 4, '#f4efe0'); R(170, 99, 14, 2, '#f4efe0'); disc(177, 101, 3, '#f0a020'); R(176, 99, 1, 1, '#ffe080');
   for (let i = 0; i < 26; i++) { const y = 104 + (i % 8 < 4 ? 0 : 1); R(124 + i, y, 1, 2, '#a83a2a'); R(124 + i, y + 2, 1, 1, '#f0c8a0'); }
-  // a jar of peanut butter and a jar of grape jelly. Foreshadowing!
   R(203, 90, 9, 14, '#b07a3a'); gingham(202, 87, 11, 3, 1); R(204, 94, 7, 4, '#ecd8a4');
   R(214, 90, 9, 14, '#6a2a7a'); gingham(213, 87, 11, 3, 1); R(215, 94, 7, 4, '#ecd8a4'); R(215, 91, 1, 10, '#9a5aa8');
-  // tin mug of coffee + steam
   speckled(230, 84, 18, 22, '#3a5a8a'); R(230, 84, 18, 2, '#e8e8f0'); R(231, 85, 16, 1, '#3a1a0a');
   R(248, 88, 5, 2, '#3a5a8a'); R(251, 88, 2, 11, '#3a5a8a'); R(248, 97, 5, 2, '#3a5a8a'); R(228, 106, 22, 2, 'rgba(0,0,0,0.2)');
   steam(236, 82, 1.7); steam(242, 82, 3.1);
-  // the morning paper
   R(254, 91, 58, 24, '#e8e0cc'); R(254, 91, 58, 1, '#ffffff'); R(254, 114, 58, 1, '#c8c0a8');
   signText('PB&J RAILROAD', 283, 94, '#1b1410'); signText('HIRING', 283, 101, '#8a1f1a');
   for (const y of [108, 111]) { R(258, y, 22, 1, '#8a8478'); R(286, y, 22, 1, '#8a8478'); }
@@ -246,7 +220,7 @@ SCENES.ch2Title = {
     fadeBlack(1 - this.t / 1.2);
   },
   tap(x, y) {
-    if (this.t < 0.6) return; // don't let the tap that skipped the night pick a badge by accident
+    if (this.t < 0.6) return;
     if (inBox(x, y, TITLE_BTN)) { toTitle(); return; }
     for (const k in BTN) if (inBox(x, y, BTN[k])) { sfx.blip(); startGame(k, STORY2); return; }
   },
@@ -260,45 +234,36 @@ function wallpaper(y0, h) {
   for (let y = y0 + 4; y < y0 + h; y += 8) for (let x = (y / 8 % 2) * 4; x < 320; x += 8) { R(x, y, 2, 1, '#83303a'); R(x, y + 1, 1, 1, '#83303a'); }
 }
 function cardTable(cx, seed) {
-  R(cx - 20, 100, 40, 3, '#2f5a3a'); R(cx - 20, 100, 40, 1, '#4a7a52'); R(cx - 18, 103, 36, 15, '#24452c'); R(cx - 18, 117, 36, 1, '#18301e'); // green felt, draped to the floor
+  R(cx - 20, 100, 40, 3, '#2f5a3a'); R(cx - 20, 100, 40, 1, '#4a7a52'); R(cx - 18, 103, 36, 15, '#24452c'); R(cx - 18, 117, 36, 1, '#18301e');
   for (let i = 0; i < 4; i++) { R(cx - 14 + i * 8, 99, 3, 2, '#f4efe0'); R(cx - 13 + i * 8, 99, 1, 1, i % 2 ? '#c0302b' : INK); }
-  ['#c0302b', '#f4efe0', '#4a7ab8'].forEach((c, i) => R(cx + 8 + i * 3, 98 - (seed + i) % 3, 2, 2 + (seed + i) % 3, c)); // poker chips
+  ['#c0302b', '#f4efe0', '#4a7ab8'].forEach((c, i) => R(cx + 8 + i * 3, 98 - (seed + i) % 3, 2, 2 + (seed + i) % 3, c));
 }
 function saloonWideArt(quiet) {
   const bob = i => (quiet ? 0 : Math.floor(clock * 4 + i) % 2);
-  // upstairs: rooms off the balcony
   wallpaper(0, 46); R(0, 0, 320, 5, '#3b2210');
   [[1, 34], [2, 132], [3, 230]].forEach(([n, x]) => {
     R(x, 10, 24, 34, '#3b2210'); R(x + 2, 12, 20, 32, '#5a3418'); R(x + 4, 14, 16, 12, '#4a2a14'); R(x + 4, 29, 16, 12, '#4a2a14'); R(x + 18, 28, 2, 2, '#c9a040');
     R(x + 9, 5, 6, 4, '#c9a040'); R(x + 11, 6, 2, 2, '#3b2210');
   });
-  R(34, 12, 4, 32, '#141010'); // room 1 left open... someone just woke up
+  R(34, 12, 4, 32, '#141010');
   R(0, 34, 320, 2, '#7a4a28'); R(0, 34, 320, 1, '#a8703c'); for (let x = 2; x < 320; x += 5) R(x, 36, 2, 8, '#6e4224');
   R(0, 44, 320, 4, '#5a3418'); R(0, 44, 320, 1, '#9a6236'); R(0, 48, 320, 2, '#2a120c');
-  // downstairs wall + wainscot
   wallpaper(50, 42); R(0, 92, 320, 20, '#6e4224'); for (let x = 2; x < 320; x += 24) { R(x, 95, 20, 14, '#7a4a28'); R(x, 95, 20, 1, '#9a6236'); }
   for (const x of [96, 214]) { R(x, 48, 4, 64, '#5a3418'); R(x, 48, 1, 64, '#9a6236'); }
-  // the doorway out to the street (bright morning outside)
   R(8, 58, 28, 54, '#f4d79a'); R(8, 58, 28, 10, '#bcdcf0'); R(8, 96, 28, 16, '#c4914f');
   R(6, 56, 32, 2, '#3b2210'); R(6, 56, 2, 56, '#3b2210'); R(36, 56, 2, 56, '#3b2210');
   const since = CH2.enterAt == null ? 99 : clock - CH2.enterAt, swing = since < 2 ? Math.sin(since * 13) * (1 - since / 2) : 0;
   const dw = Math.max(3, Math.round(12 * (1 - Math.abs(swing) * 0.75)));
   R(8, 76, dw, 18, '#9a6236'); R(8, 76, dw, 1, '#c98a4b'); R(36 - dw, 76, dw, 18, '#9a6236'); R(36 - dw, 76, dw, 1, '#c98a4b');
-  // floor
   R(0, 112, 320, 68, '#7a4a28'); for (const y of [115, 119, 124, 130, 137, 145, 154, 164, 175]) R(0, y, 320, 1, '#5a3418');
-  // chandelier
   R(160, 50, 1, 6, '#3b2210'); R(150, 57, 22, 2, '#c9a040'); R(155, 59, 12, 1, '#a88030');
   for (const cx of [151, 157, 164, 170]) { R(cx, 53, 2, 4, '#f4efe0'); R(cx, 51 - (Math.floor(clock * 8 + cx) % 2), 2, 2, '#ffd23f'); }
-  // piano + Piano Pete (he stops playing when the doors swing open)
   R(40, 80, 30, 32, '#2a1a14'); R(38, 78, 34, 3, '#3b2a20'); R(64, 90, 8, 4, '#f4efe0'); R(42, 84, 20, 10, '#3b2a20'); R(44, 72, 8, 6, '#f4efe0');
   ch2Fig({ ...CHARS.pete, pose: 'idle' }, 66, 112 - bob(0), true);
-  if (!quiet && Math.floor(clock * 3) % 2) R(52, 62 - Math.floor(clock * 6) % 4, 2, 3, '#f4efe0'); // little music note
-  // card tables (players sit behind the felt)
+  if (!quiet && Math.floor(clock * 3) % 2) R(52, 62 - Math.floor(clock * 6) % 4, 2, 3, '#f4efe0');
   ch2Fig({ ...CH2_PATRONS[0], pose: 'idle' }, 98, 116 - bob(1)); ch2Fig({ ...CH2_PATRONS[1], pose: bob(2) ? 'drink' : 'idle' }, 118, 116); cardTable(118, 0);
   ch2Fig({ ...CH2_PATRONS[2], pose: 'idle' }, 164, 116 - bob(3)); ch2Fig({ ...CH2_PATRONS[3], pose: 'idle' }, 180, 116); ch2Fig({ ...CH2_PATRONS[4], pose: 'idle' }, 196, 116 - bob(4), true); cardTable(188, 1);
-  // a hound asleep by table two
   R(176, 114, 16, 4, '#8a5a30'); R(190, 112, 6, 5, '#8a5a30'); R(194, 114, 3, 2, '#6a4020'); R(190, 112, 2, 3, '#5a3418'); R(172, 116, 5, 1, '#8a5a30'); R(192, 113, 1, 1, INK);
-  // the bar: back shelves, mirror, Gus, counter, regulars
   R(226, 56, 94, 3, '#5a3418'); R(226, 70, 94, 3, '#5a3418');
   ['#3a7a3a', '#7a4a1a', '#8a2a2a', '#c8d8d0', '#4a6a8a'].forEach((c, i) => { R(230 + i * 18, 48, 4, 8, c); R(231 + i * 18, 46, 2, 2, c); R(238 + i * 18, 62, 4, 8, c); });
   R(250, 74, 52, 16, '#7fa0a8'); R(252, 76, 6, 1, '#c8e0e4');
@@ -306,7 +271,7 @@ function saloonWideArt(quiet) {
   R(222, 90, 98, 3, '#a8703c'); R(224, 93, 96, 19, '#7a4a28'); for (let x = 228; x < 320; x += 24) { R(x, 96, 18, 12, '#8a5530'); R(x, 96, 18, 1, '#a8703c'); }
   R(224, 108, 96, 2, '#c9a040');
   ch2Fig({ ...CH2_PATRONS[5], pose: bob(6) ? 'drink' : 'idle' }, 232, 112); ch2Fig({ ...CH2_PATRONS[1], hatC: '#5a2a2a', shirt: '#7a8a6a', pose: 'idle' }, 252, 112, true);
-  R(216, 106, 6, 6, '#c9a040'); R(217, 105, 4, 1, '#e2b33c'); // spittoon
+  R(216, 106, 6, 6, '#c9a040'); R(217, 105, 4, 1, '#e2b33c');
 }
 function drawEliza() {
   if (CH2.enterAt == null) return;
@@ -314,7 +279,7 @@ function drawEliza() {
   const fr = walking && Math.floor(clock * 7) % 2;
   ch2Fig({ ...CHARS.eliza, pose: 'idle', step: fr ? 1 : 0 }, Math.round(x), 113 - (fr ? 1 : 0));
 }
-const GUS_LINE = 6; // the room stays frozen until Gus speaks up
+const GUS_LINE = 6;
 CUTS.ch2Saloon = {
   set: 'saloonWide', actors: [],
   start() { CH2.enterAt = null; },
@@ -365,50 +330,80 @@ function horse(x, y, sc, fr, Hc, flip, blanket, moving = true) {
   hp(6, 7, 17, 1, Hc.light); hp(6, 15, 17, 1, Hc.dark); hp(30, 5, 2, 2, Hc.dark); hp(27, 2, 1, 1, INK);
   if (blanket) { hp(10, 6, 9, 5, blanket); hp(10, 10, 9, 1, shade(blanket, 0.7)); hp(12, 5, 5, 2, '#5a3418'); }
 }
-// rear-quarter view (the trail riders): we see the horse's rump, tail and the flank facing the wagon,
-// with the neck and head pointing away up the trail. 32x32 grid. part = 'back' (legs, barrel, neck, head)
-// or 'front' (rump + tail, drawn over the rider's legs).
-function horseBack(x, y, sc, fr, Hc, flip, blanket, part) {
-  let ox = 0, oy = 0, ink = false;
-  const hp = (lx, ly, w, h, c) => R((flip ? x + (32 - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c);
-  const ell = (cx, cy, rx, ry, c, c2, split) => { // filled ellipse, optional shaded right part
-    for (let j = -ry; j <= ry; j++) { const hw = Math.round(rx * Math.sqrt(1 - (j * j) / (ry * ry + 0.01))); if (hw <= 0) continue;
-      hp(cx - hw, cy + j, hw * 2, 1, c); if (c2 && !ink) hp(cx + Math.round(hw * split), cy + j, hw - Math.round(hw * split), 1, c2); }
-  };
-  const gal = [0, 1, 2, 1][fr % 4], gal2 = [2, 1, 0, 1][fr % 4], sw = [-1, 0, 1, 0][fr % 4];
-  const back = () => {
-    hp(24, 19, 2, 6 - gal, Hc.dark); hp(24, 25 - gal, 2, 1, '#2a1a10');            // far front legs (shorter: further away)
-    hp(27, 18, 2, 5 - gal2, Hc.dark); hp(27, 23 - gal2, 2, 1, '#2a1a10');
-    ell(21, 14, 9, 6, Hc.coat, Hc.dark, 0.3);                                      // barrel, flank toward the wagon
-    ell(28, 8, 2, 4, Hc.coat); ell(29, 4, 2, 3, Hc.coat);                          // neck reaching away up the trail
-    ell(30, 1, 2, 2, Hc.coat);                                                     // back of the head
-    hp(28, -3, 1, 3, Hc.coat); hp(31, -3, 1, 3, Hc.coat);                          // ears
-  };
-  const front = () => {
-    hp(5, 24, 3, 7 - gal, Hc.coat); hp(5, 31 - gal, 3, 1, '#2a1a10');              // hind legs, galloping
-    hp(13, 24, 3, 7 - gal2, Hc.dark); hp(13, 31 - gal2, 3, 1, '#2a1a10');
-    ell(7, 18, 5, 7, Hc.coat); ell(14, 18, 5, 7, Hc.coat, Hc.dark, 0.1);          // two rounded haunches
-    hp(5, 22, 12, 3, Hc.coat);
-  };
-  if (part === 'back') {
-    ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx * sc; oy = dy * sc; back(); }
-    ink = false; ox = oy = 0; back();
-    if (Hc.spots) { hp(22, 11, 5, 4, Hc.spots); hp(28, 6, 1, 3, Hc.spots); }
-    hp(27, -1, 1, 11, Hc.mane); hp(28, -2, 2, 2, Hc.mane);                          // mane along the neck
-    hp(12, 9, 14, 1, Hc.light);                                                      // sun along the back
-    if (blanket) { hp(13, 8, 10, 4, blanket); hp(13, 11, 10, 1, shade(blanket, 0.7)); }
-    return;
+// =====================================================================
+//  TRAIL RIDERS — seen from behind and a little to the side (3/4 rear),
+//  like an old engraving: big rump and tail toward you, rider's back to
+//  you, horse's neck and head turned away up the trail. 40 x 52 grid,
+//  drawn facing right (riders on the left side); mirrored on the right.
+// =====================================================================
+const RW = 40, RH = 52;
+function rearShape(hp, ell, o) { // o = { Hc, sp, pose, fr, horse, rider, blanket, turned }
+  const { Hc, sp } = o, gal = [0, 2, 3, 1][o.fr % 4], gal2 = [3, 1, 0, 2][o.fr % 4], sw = [-1, 0, 1, 0][o.fr % 4];
+  if (o.horse) {
+    // far side: front legs, barrel, neck, head (further away = drawn first)
+    hp(29, 36, 2, 7 - (gal >> 1), Hc.dark); hp(29, 43 - (gal >> 1), 2, 1, '#2a1a10');
+    hp(32, 35, 2, 7 - (gal2 >> 1), Hc.dark); hp(32, 42 - (gal2 >> 1), 2, 1, '#2a1a10');
+    ell(25, 30, 9, 6, Hc.coat, Hc.dark, 0.25);
+    ell(30, 24, 3, 5, Hc.coat); ell(33, 19, 3, 4, Hc.coat);
+    hp(33, 12, 5, 5, Hc.coat); hp(37, 14, 3, 4, Hc.coat); hp(38, 16, 2, 2, Hc.dark); hp(35, 10, 1, 2, Hc.coat); hp(33, 10, 1, 2, Hc.coat);
+    // hind legs + the two haunches (closest to you)
+    hp(6, 41, 3, 9 - gal, Hc.coat); hp(6, 50 - gal, 3, 1, '#2a1a10');
+    hp(18, 41, 3, 9 - gal2, Hc.dark); hp(18, 50 - gal2, 3, 1, '#2a1a10');
+    ell(10, 34, 7, 9, Hc.coat); ell(18, 34, 7, 9, Hc.coat, Hc.dark, 0.0);
   }
-  ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx * sc; oy = dy * sc; front(); }
-  ink = false; ox = oy = 0; front();
-  if (Hc.spots) { hp(13, 14, 4, 5, Hc.spots); }
-  hp(4, 13, 2, 6, Hc.light);                                                         // highlight on the near haunch
-  hp(10, 13, 1, 10, shade(Hc.coat, 0.7));                                            // crease between the haunches
-  hp(9 + sw, 10, 3, 4, Hc.mane); hp(9 + sw * 2, 14, 3, 9, Hc.mane); hp(9 + sw * 3, 23, 2, 3, Hc.mane); // tail streaming back
+  if (o.rider) {
+    const pants = sp.pants || '#3a3550', shirt = sp.shirt, vest = sp.vest || sp.coat, skin = sp.skin, hair = sp.hair || '#2a1a10', hc = sp.hatC || '#5a4a3a';
+    hp(22, 21, 4, 8, pants); hp(22, 28, 5, 4, sp.boots || '#2a1a10'); hp(21, 31, 7, 1, '#8a8a96');     // leg down the far flank + stirrup
+    hp(11, 19, 11, 4, pants);                                                                          // seat
+    hp(11, 6, 11, 14, shirt); if (vest) hp(12, 7, 9, 12, vest); hp(11, 18, 11, 2, '#3b2210');          // back, vest, belt
+    hp(14, 5, 4, 2, skin); hp(12, -1, 8, 7, hair);                                                     // neck + back of the head
+    if (sp.hairLong) { hp(15, 6, 3, 11, hair); hp(15, 17, 3, 1, '#c0302b'); }                          // braid
+    if (o.turned) { hp(19, 0, 3, 6, skin); hp(22, 2, 1, 2, skin); hp(20, 1, 1, 1, INK);                // face turned toward you
+      if (sp.face === 'bandana') hp(19, 3, 4, 3, sp.bandC || '#c0302b');
+      else if (sp.face === 'beard' || sp.face === 'mustache') hp(19, 4, 3, sp.face === 'beard' ? 3 : 1, sp.beardC || hair); }
+    if (sp.hat === 'cowboy') { hp(8, 2, 16, 2, hc); hp(11, -3, 10, 5, hc); hp(11, 1, 10, 1, shade(hc, 0.6)); hp(14, -3, 4, 1, shade(hc, 0.7)); }
+    else if (sp.hat === 'bowler') { hp(10, 2, 12, 1, hc); hp(11, -2, 10, 4, hc); hp(12, -3, 8, 1, hc); }
+    else if (sp.hat === 'feather') { hp(12, 1, 8, 1, hc); hp(17, -6, 1, 7, sp.featherC || '#f4efe0'); hp(17, -7, 1, 1, '#3b2210'); }
+    const arm = vest ? shirt : shade(shirt, 0.85);
+    const reinsL = () => { hp(8, 8, 3, 9, arm); hp(9, 16, 2, 2, skin); };
+    const reinsR = () => { hp(21, 8, 3, 9, arm); hp(21, 16, 2, 2, skin); };
+    switch (o.pose) {
+      case 'aim': reinsL(); hp(21, 7, 4, 3, arm); hp(24, 8, 5, 3, arm); hp(29, 8, 2, 3, skin);
+        hp(30, 7, 4, 3, '#4a4a52'); hp(34, 8, 2, 1, '#2a2a30'); hp(31, 9, 1, 2, '#6a4020'); break;
+      case 'bow': reinsR(); hp(21, 7, 9, 3, arm); hp(29, 7, 2, 3, skin);
+        hp(31, -1, 1, 18, '#7a4a20'); hp(30, -2, 1, 2, '#7a4a20'); hp(30, 16, 1, 2, '#7a4a20'); hp(32, 1, 1, 1, '#d8c8a0'); hp(32, 13, 1, 1, '#d8c8a0');
+        hp(22, 8, 11, 1, '#d8c8a0'); hp(33, 8, 2, 1, '#b8b8c0'); hp(20, 8, 2, 2, skin); break;
+      case 'wave': reinsL(); hp(21, -2, 3, 10, arm); hp(21, -5, 3, 3, skin); break;
+      case 'hit': hp(7, -4, 3, 11, arm); hp(22, -4, 3, 11, arm); hp(7, -6, 3, 2, skin); hp(22, -6, 3, 2, skin); break;
+      default: reinsL(); reinsR();
+    }
+  }
 }
-function blitFlip(img, x, y, sc, flip, shear = 0) {
-  if (!flip) { blit(img, x, y, sc, shear); return; }
-  g.save(); g.translate(x * 2 + (GW + 2) * sc, 0); g.scale(-1, 1); blit(img, x, y, sc, shear); g.restore();
+function drawRear(o, x, y, sc, flip, alpha = 1) {
+  let ink = false, ox = 0, oy = 0;
+  const hp = (lx, ly, w, h, c) => { if (w <= 0 || h <= 0) return; R((flip ? x + (RW - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c); };
+  const ell = (cx, cy, rx, ry, c, c2, split) => {
+    for (let j = -ry; j <= ry; j++) { const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (j * j) / (ry * ry)))); if (hw <= 0) continue;
+      hp(cx - hw, cy + j, hw * 2, 1, c); if (c2 && !ink && split != null) hp(cx + Math.round(hw * split), cy + j, hw - Math.round(hw * split), 1, c2); }
+  };
+  if (alpha < 1) ctx.globalAlpha = Math.max(0, alpha);
+  const pass = part => {
+    const oo = { ...o, horse: part === 'horse' && o.horse, rider: part === 'rider' && o.rider };
+    ink = true; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ox = dx; oy = dy; rearShape(hp, ell, oo); }
+    ink = false; ox = oy = 0; rearShape(hp, ell, oo);
+    if (oo.horse) { // details on top of the horse
+      const Hc = o.Hc, sw = [-1, 0, 1, 0][o.fr % 4];
+      if (Hc.spots) { hp(6, 30, 4, 5, Hc.spots); hp(24, 28, 5, 3, Hc.spots); }
+      hp(5, 30, 2, 6, Hc.light); hp(14, 28, 1, 12, shade(Hc.coat, 0.7));                                  // shine + crease
+      hp(28, 15, 2, 12, Hc.mane); hp(32, 10, 2, 3, Hc.mane);                                                // mane
+      hp(13 + sw, 26, 3, 5, Hc.mane); hp(13 + sw * 2, 31, 3, 11, Hc.mane); hp(13 + sw * 3, 42, 2, 4, Hc.mane); hp(14 + sw * 2, 31, 1, 11, shade(Hc.mane, 1.4)); // tail
+      if (o.blanket) { hp(9, 23, 16, 4, o.blanket); hp(9, 26, 16, 1, shade(o.blanket, 0.7)); }
+      line(flip ? x + (RW - 36) * sc : x + 36 * sc, y + 15 * sc, flip ? x + (RW - 24) * sc : x + 24 * sc, y + 19 * sc, '#2a1a10'); // reins
+    }
+  };
+  if (o.horse) pass('horse');
+  if (o.rider) pass('rider');
+  ctx.globalAlpha = 1;
 }
 
 // =====================================================================
@@ -493,56 +488,54 @@ function mkRider(e) {
   const [, , sideS, near, ty, who, win, wait] = e, side = sideS === 'L' ? -1 : 1;
   const spec = who === 'bandit' ? pick(OUTLAWS) : who === 'native' ? pick(NATIVE_RIDERS) : pick(TRAVELERS);
   const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : who === 'bandit' ? pick(['black', 'bay', 'gray']) : pick(['chestnut', 'palomino', 'gray'])];
-  const tx = near ? (side < 0 ? 4 : LW - 68) : (side < 0 ? 64 : LW - 96);
+  const tx = near ? (side < 0 ? 2 : LW - RW * 2 - 2) : (side < 0 ? 62 : LW - RW - 62);
   return { near: !!near, side, who, type: ty === 'o' ? 'outlaw' : 'bystander', spec, coat,
     blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : who === 'bandit' ? '#3a2a2a' : '#7a2a2a',
     window: win * diff.mult, wait: !!wait, phase: 'in', age: 0, pt: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
-    x: side < 0 ? (near ? -80 : -40) : LW + (near ? 16 : 8), tx };
+    x: side < 0 ? -RW * 2 - 10 : LW + 10, tx };
 }
 const slotBusy = r => RIDE.riders.some(o => o.near === r.near && o.side === r.side);
 const revealed = r => !r.wait || r.phase === 'show' || r.phase === 'out';
 
 // ---------------- rider geometry + drawing ----------------
 function riderGeom(r) {
-  const sc = r.near ? 2 : 1, base = r.near ? 158 : 102, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
-  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - 31 * sc - bob, flip = r.side > 0;
-  // the rider sits on the saddle, twisted around toward the wagon
-  const saddleX = flip ? hx + (32 - 17) * sc : hx + 17 * sc, sx = saddleX - 10 * sc, sy = hy + 10 * sc - 20 * sc;
-  return { sc, fr, hx, hy, flip, sx, sy };
+  const sc = r.near ? 2 : 1, base = r.near ? 166 : 104, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
+  const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - RH * sc - bob, flip = r.side > 0;
+  const L = (lx, w = 0) => (flip ? hx + (RW - lx - w) * sc : hx + lx * sc); // local x -> screen x
+  return { sc, fr, hx, hy, flip, L };
 }
-const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 21 * G.sc });
+const riderBox = (r, G) => { const x1 = G.L(8, 17); return { x: x1, y: G.hy - 4 * G.sc, w: 17 * G.sc, h: 25 * G.sc }; };
 function riderPose(r) {
   if (!revealed(r)) return 'idle';
   if (r.type === 'bystander') return 'wave';
   return r.who === 'native' ? 'bow' : 'aim';
 }
 function drawRider(r) {
-  const G = riderGeom(r), sc = G.sc;
-  if (r.dead) { // the horse runs off up the trail, the rider tumbles off the back
-    const t = r.deadTime, dir = r.side, k = Math.min(1, t * 1.2);
-    const hx = G.hx + Math.round(dir * t * 60), hy = G.hy - Math.round(t * 40);
-    horseBack(hx, hy, sc, G.fr, r.coat, G.flip, r.blanket, 'back'); horseBack(hx, hy, sc, G.fr, r.coat, G.flip, r.blanket, 'front');
-    const fx = G.sx + Math.round(-dir * t * 30), fy = G.sy + Math.round(-40 * t + 320 * t * t);
-    blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(dir * k * 8));
+  const G = riderGeom(r), sc = G.sc, o = { Hc: r.coat, sp: r.spec, fr: G.fr, blanket: r.blanket, horse: true, rider: true };
+  if (r.dead) { // the horse keeps galloping straight off the side of the screen; the rider tumbles off behind
+    const t = r.deadTime;
+    drawRear({ ...o, rider: false }, G.hx + Math.round(r.side * t * 85 * sc), G.hy, sc, G.flip);
+    const fy = G.hy + Math.round(-14 * sc * t + 260 * sc * t * t), fx = G.hx - Math.round(r.side * t * 16 * sc);
+    if (fy < LH + 10) drawRear({ ...o, horse: false, pose: 'hit', turned: true }, fx, fy, sc, G.flip, 1 - Math.max(0, t - 0.6) * 2);
+    if (t > 0.35 && t < 0.9) for (let i = 0; i < 3; i++) R(G.L(12) + (i - 1) * 6 * sc, G.hy + 48 * sc - Math.round((t - 0.35) * 20), 4 * sc, 2 * sc, 'rgba(200,170,120,0.6)'); // dust
     return;
   }
-  horseBack(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket, 'back');
-  blitFlip(getSprite({ ...r.spec, pose: riderPose(r) }), G.sx, G.sy, sc, G.flip);
-  horseBack(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket, 'front');
+  const pose = riderPose(r);
+  drawRear({ ...o, pose, turned: pose !== 'idle' }, G.hx, G.hy, sc, G.flip);
   if (r.type === 'outlaw' && r.phase === 'show') {
-    const p = Math.max(0, 1 - r.age / r.window), bx = G.sx + 2 * sc, bw = 16 * sc, by = G.sy - 5;
+    const p = Math.max(0, 1 - r.age / r.window), bx = G.L(8, 17), bw = 17 * sc, by = G.hy - 8 * sc - 2;
     R(bx - 1, by - 1, bw + 2, 4, INK); R(bx, by, Math.round(bw * p), 2, p > 0.4 ? '#ffd23f' : '#ff3b30');
     if (r.age > r.window * 0.6 && Math.floor(r.age * 12) % 2) { // about to fire!
-      const gx = r.who === 'native' ? 17 : 19, gy = r.who === 'native' ? 12 : 11;
-      R(G.flip ? G.sx + (20 - gx - 2) * sc : G.sx + gx * sc, G.sy + gy * sc, 2 * sc, 3 * sc, '#fff36b');
+      const mx = r.who === 'native' ? 35 : 36;
+      R(G.L(mx, 3), G.hy + 7 * sc, 3 * sc, 3 * sc, '#fff36b');
     }
   }
 }
 function knockRider(r) {
-  const G = riderGeom(r), sc = G.sc, d = Math.random() < 0.5 ? -1 : 1;
-  if (r.spec.hat && r.spec.hat !== 'none') effects.push({ phys: true, hat: true, combo: 0, base: 250, spec: { ...r.spec, hatOnly: true }, sc, x: G.sx, y: G.sy,
-    vx: d * (25 + Math.random() * 20) * sc, vy: -110 * sc, life: 999, flashT: 0 });
-  if (r.who === 'bandit') effects.push({ phys: true, gun: true, sc, x: G.sx + 16 * sc, y: G.sy + 13 * sc, vx: -d * 20, vy: -50, life: 0.9 });
+  const G = riderGeom(r), sc = G.sc, d = r.side < 0 ? 1 : -1;
+  if (r.spec.hat && r.spec.hat !== 'none') effects.push({ phys: true, hat: true, combo: 0, base: 250, spec: { ...r.spec, hatOnly: true }, sc, x: G.L(7, 18), y: G.hy - 6 * sc,
+    vx: d * (20 + Math.random() * 25) * sc, vy: -110 * sc, life: 999, flashT: 0 });
+  if (r.who === 'bandit') effects.push({ phys: true, gun: true, sc, x: G.L(32), y: G.hy + 7 * sc, vx: d * 30, vy: -50, life: 0.9 });
 }
 
 // ---------------- obstacles + scenery drawing ----------------
@@ -636,7 +629,7 @@ function steer(d) {
   RIDE.press[d < 0 ? 'l' : 'r'] = 0.15;
   const n = Math.max(-1, Math.min(1, RIDE.lane + d));
   if (n === RIDE.lane) { sfx.empty(); return; }
-  RIDE.lane = n; noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08); // crack of the reins
+  RIDE.lane = n; noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08);
 }
 function crash(o) {
   shake = Math.max(shake, 0.6); sfx.thud(); noise(0.4, 0.6, 700);
@@ -661,7 +654,7 @@ RUNS.trail = {
     for (let z = 1.3; z < 16; z += 0.45) spawnDeco(z);
     for (let z = 1.5; z < 16; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
   },
-  tick(dt) { // scenery rolls by even during the intro / clear screens
+  tick(dt) {
     RIDE.cam += (RIDE.lane - RIDE.cam) * Math.min(1, dt * 9);
     const dz = RIDE.v * dt; RIDE.dist += dz;
     for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles]) for (const o of list) o.z -= dz;
@@ -685,7 +678,7 @@ RUNS.trail = {
       else if (k === 'bottles') RIDE.posts.push({ wx: (e[2] === 'L' ? -1 : 1) * 1.95, z: 15, bottles: [0, 1, 2].map(() => ({ alive: true, c: pick(['#3a7a3a', '#7a4a1a', '#8a2a2a']) })) });
       else if (k === 'tumble') RIDE.tumbles.push({ wx: -3.5 * e[2], vx: 1.7 * e[2], z: 7 + Math.random() * 2 });
     }
-    RIDE.pending = RIDE.pending.filter(e => { // a rider waits until his spot alongside the wagon is free
+    RIDE.pending = RIDE.pending.filter(e => {
       const r = mkRider(e); if (slotBusy(r)) return true;
       RIDE.riders.push(r); if (r.type === 'outlaw' && !r.wait) sfx.cock(); return false;
     });
@@ -700,11 +693,11 @@ RUNS.trail = {
         r.age += dt;
         if (r.age >= r.window) {
           if (r.type === 'outlaw') { riderFires(r); if (state !== 'play') return; }
-          else r.phase = 'out'; // a friendly wave, then they fall back
+          else r.phase = 'out';
         }
-      } else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
+      } else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -RW * 2 - 10 || r.x > LW + 20) r.gone = true; }
     }
-    RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.5));
+    RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.6));
     for (const o of RIDE.obs) if (!o.checked && o.z <= 1.35) {
       o.checked = true;
       if (o.lanes.includes(RIDE.lane)) { o.z = 0; crash(o); if (state !== 'play') return; }
@@ -727,8 +720,8 @@ RUNS.trail = {
       if (r.type === 'outlaw' && revealed(r)) {
         hits++; S.n.outlaw++;
         const bonus = r.phase === 'show' ? Math.round(100 * Math.max(0, 1 - r.age / r.window)) : 100;
-        addScore(100 + bonus, 'outlaw'); popText(G.sx + 10 * G.sc, G.sy, '+' + (100 + bonus));
-      } else hurt('bystander'); // settlers, or anyone you shot before they showed their hand
+        addScore(100 + bonus, 'outlaw'); popText(G.L(16), G.hy, '+' + (100 + bonus));
+      } else hurt('bystander');
       return true;
     }
     for (const t of RIDE.tumbles) { const T = tumbleGeom(t); if (inBox(x, y, { x: T.x - T.r - 2, y: T.y - T.r - 2, w: T.r * 2 + 4, h: T.r * 2 + 4 })) {
@@ -770,7 +763,7 @@ RUNS.trail = {
     drawTeam();
     RIDE.birds.forEach(drawBird);
   },
-  ui() { // steering arrows (bottom right) + lane marker
+  ui() {
     if (!['intro', 'play'].includes(state)) return;
     ctx.globalAlpha = 0.9;
     for (const k of ['l', 'r']) {
@@ -842,7 +835,7 @@ function cabinArt(night = 0) {
   R(cx + 66, cb - 10, 10, 8, '#7a4a24'); for (let i = 0; i < 3; i++) disc(cx + 70 + i * 4, cb - 12 - (i % 2) * 3, 2, '#9a6236');
   for (let j = 0; j < 70; j++) R(306 - (j >> 2), 150 - 72 + j, 2 + (j >> 1), 1, j % 6 < 4 ? '#2a3a2a' : '#223022');
   R(304, 150, 4, 6, '#3b2210');
-  if (night > 0) { // dusk -> night: darken everything, then stars + moon, window keeps glowing
+  if (night > 0) {
     R(0, 0, LW, LH, `rgba(8,10,34,${0.78 * night})`);
     ctx.globalAlpha = night;
     for (const [sx, sy] of [[20, 8], [44, 20], [70, 6], [102, 26], [128, 12], [176, 8], [210, 22], [236, 6], [262, 18], [290, 10], [306, 30], [88, 40]]) R(sx, sy, 1, 1, Math.floor(clock * 2 + sx) % 6 ? '#f4efe0' : '#8a90b0');
@@ -853,7 +846,7 @@ function cabinArt(night = 0) {
   for (const [r, a] of [[18, 0.07 + 0.05 * night], [11, 0.09 + 0.06 * night]]) disc(cx + 24, cb - 23, r, `rgba(255,200,100,${a})`);
   for (let i = 0; i < 8; i++) if (Math.floor(clock * 2 + i * 1.7) % 3 === 0) R(20 + (i * 41) % 280, 120 + (i * 17) % 30 + Math.round(Math.sin(clock + i) * 2), 1, 1, '#fff08a');
 }
-const CABIN_LIFT = 36; // during cutscenes the scene sits higher so the dialog box doesn't cover it
+const CABIN_LIFT = 36;
 SETS.cabinLake = { bg: () => { R(0, 0, LW, LH, '#8a6a40'); g.save(); g.translate(0, -CABIN_LIFT); cabinArt(); g.restore(); }, fg: () => {} };
 CUTS.ch2Cabin = {
   set: 'cabinLake', actors: [], tune: 'morning',
@@ -869,9 +862,8 @@ CUTS.ch2Cabin = {
   ],
 };
 
-// ---- night falls: the sheriff on the roof with his coffee, then fade to black
 const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. THE SHERIFF SETTLES IN ON THE ROOF TO KEEP WATCH.';
-function roofWatcher() { // the sheriff sitting on the ridge of the roof, mug in hand
+function roofWatcher() {
   const x = CABIN_X + 46, y = CABIN_B - 62;
   ch2Fig({ ...CHARS.newSheriff, pose: 'drink' }, x, y + 30);
   steam(x + 15, y + 6, 0.5);
@@ -911,50 +903,36 @@ function bushBlob(cx, by, w, h) {
   R(cx - w / 2 + 2, by - 1, w - 4, 1, '#2e4a20');
 }
 function siegeBg() {
-  // early-morning sky
   ['#8ab8e0', '#a8cce8', '#c8dcec', '#f0dcc0', '#f8c890'].forEach((c, i) => R(0, i * 7, LW, 7, c));
   disc(42, 30, 8, '#fff4c8');
-  // the lake beyond the yard + far hills
   for (let x = 0; x < LW; x += 2) { const h = 6 + Math.round(4 * Math.sin(x * 0.04 + 2)); R(x, 34 - h, 2, h, '#7a8aa8'); }
   R(0, 34, LW, 8, '#7aa0c8'); for (let y = 35; y < 42; y += 2) R(0, y, LW, 1, '#90b4d8');
-  // treeline behind the yard
   for (let x = -4; x < LW; x += 9) pine(x + ((x * 13) % 5), 52, 18 + (x * 7) % 9, '#2e5038', '#24432e');
-  // the yard
   R(0, 50, LW, 100, '#8a9a4a');
   for (let y = 50; y < 150; y += 3) for (let x = (y * 7) % 11; x < LW; x += 11) R(x, y, 1, 1, '#7a8a3a');
-  for (let y = 64; y < 150; y++) { const w = 18 + Math.round((y - 64) * 0.9), cx = 160; R(cx - w / 2, y, w, 1, (y >> 1) % 3 ? '#b08a58' : '#a88050'); } // path to the door
-  // back fence with bottles on the rail
+  for (let y = 64; y < 150; y++) { const w = 18 + Math.round((y - 64) * 0.9), cx = 160; R(cx - w / 2, y, w, 1, (y >> 1) % 3 ? '#b08a58' : '#a88050'); }
   R(112, 52, 60, 2, '#7a5a34'); R(112, 58, 60, 2, '#7a5a34'); for (const fx of [112, 132, 152, 170]) R(fx, 50, 2, 12, '#5a3a20');
-  // stump + chopping axe
   R(178, 100, 12, 6, '#7a4a24'); R(178, 100, 12, 2, '#c8a070'); R(186, 92, 1, 9, '#7a5a34'); R(184, 92, 4, 3, '#a8a8b0');
-  // a few far pines in the yard corners
   pine(10, 120, 70); pine(312, 124, 74); pine(28, 100, 44, '#335a3c', '#284a30');
 }
 function siegeFg() {
-  bushBlob(47, 88, 32, 16);                                                         // bushL
-  boulder(109, 86, 36, 18);                                                         // rock
-  // parked wagon (side view, no team) — they're hiding behind it
+  bushBlob(47, 88, 32, 16);
+  boulder(109, 86, 36, 18);
   R(150, 64, 40, 14, '#7a4a24'); R(150, 64, 40, 1, '#9a6236'); R(150, 70, 40, 1, '#5a3418'); spokeWheel(156, 80, 6, 0.3); spokeWheel(184, 80, 6, 1.1);
   for (let j = 0; j < 14; j++) R(152 + (j < 3 ? 3 - j : 0), 50 + j, 36 - (j < 3 ? (3 - j) * 2 : 0), 1, '#ece4cc');
-  // woodpile
   for (let r = 0; r < 4; r++) for (let i = 0; i < 6 - r; i++) { const lx = 208 + r * 3 + i * 6, ly = 84 - r * 5; disc(lx + 3, ly, 3, '#8a5530'); disc(lx + 3, ly, 1, '#c8a070'); }
-  bushBlob(275, 88, 32, 16);                                                        // bushR
-  bushBlob(75, 128, 38, 18);                                                        // front bush left
-  // rain barrel + trough near the front right
+  bushBlob(275, 88, 32, 16);
+  bushBlob(75, 128, 38, 18);
   R(228, 112, 26, 16, '#6e4224'); R(228, 112, 26, 2, '#9a6236'); R(228, 118, 26, 1, '#3b2210'); R(228, 124, 26, 1, '#3b2210'); R(230, 113, 22, 1, '#6a8ab0');
-  // the well
   R(134, 116, 32, 14, '#8a8478'); for (let i = 0; i < 4; i++) R(134 + i * 8 + ((i % 2) * 2), 118 + (i % 2) * 5, 6, 3, '#a8a298'); R(134, 116, 32, 2, '#b8b2a8');
   R(136, 92, 2, 24, '#5a3a20'); R(162, 92, 2, 24, '#5a3a20'); R(132, 90, 36, 3, '#6e4224'); R(149, 96, 1, 12, '#c8b890'); R(146, 106, 7, 5, '#7a5a34');
-  // the cabin roof you're standing on
   for (let y = 148; y < LH; y++) { const sh = (y - 148) >> 2; R(0, y, LW, 1, (y % 4 === 0) ? '#2a160c' : '#4a2a1a'); for (let x = (sh % 2) * 9; x < LW; x += 18) R(x, y, 1, 1, '#2a160c'); }
   R(0, 147, LW, 2, '#6e4224');
   R(272, 118, 22, 62, '#7a7470'); for (let y = 120; y < LH; y += 5) R(272, y, 22, 1, '#5a5450'); R(270, 116, 26, 4, '#8a8480');
   for (let i = 0; i < 4; i++) { const p = (clock * 0.3 + i / 4) % 1; disc(283 + Math.round(Math.sin(p * 6 + i) * 3), 112 - Math.round(p * 40), 2 + Math.round(p * 3), `rgba(230,225,225,${0.45 * (1 - p)})`); }
-  // last night's coffee, still on the shingles
   speckled(30, 158, 9, 10, '#3a5a8a'); R(30, 158, 9, 1, '#e8e8f0'); R(39, 160, 2, 1, '#3a5a8a'); R(40, 160, 1, 5, '#3a5a8a'); R(39, 164, 2, 1, '#3a5a8a');
 }
 SETS.cabinSiege = { bg: siegeBg, fg: siegeFg, outdoor: true };
-const NATIVE_FOES = NATIVE_RIDERS;
 LEVELS.push({
   label: 'CH. 2', name: 'THE CABIN', set: 'cabinSiege',
   spots: {
@@ -970,7 +948,7 @@ LEVELS.push({
            [15.0, 'barrel', 'o', 1.3], [15.4, 'bushL', 'n', 1.25], [16.4, 'rock', 'o', 1.25], [16.8, 'bushR', 'o', 1.25], [17.8, 'wagon', 'n', 1.2],
            [18.6, 'well', 'o', 1.2], [19.0, 'bushF', 'n', 1.2], [20.2, 'wood', 'o', 1.15], [20.6, 'barrel', 'n', 1.15], [21.8, 'bushL', 'o', 1.1],
            [22.2, 'bushR', 'n', 1.1], [23.4, 'rock', 'o', 1.05], [23.8, 'wagon', 'o', 1.05], [24.2, 'well', 'n', 1.05]],
-  spec: (ty, n) => (ty === 'n' ? { ...NATIVE_FOES[n % NATIVE_FOES.length], pose: 'bow' } : { ...OUTLAWS[n % OUTLAWS.length], pose: 'aim' }),
+  spec: (ty, n) => (ty === 'n' ? { ...NATIVE_RIDERS[n % NATIVE_RIDERS.length], pose: 'bow' } : { ...OUTLAWS[n % OUTLAWS.length], pose: 'aim' }),
   props: [{ k: 'bottle', x: 120, y: 44, c: '#3a7a3a', layer: 'bg' }, { k: 'bottle', x: 140, y: 44, c: '#7a4a1a', layer: 'bg' }, { k: 'bottle', x: 160, y: 44, c: '#8a2a2a', layer: 'bg' },
           { k: 'can', x: 182, y: 95, layer: 'bg' }, { k: 'jug', x: 222, y: 60, layer: 'fg' }, { k: 'lantern', x: 150, y: 92, layer: 'fg' }],
 });
@@ -988,7 +966,7 @@ CUTS.ch2Dawn = {
 //  RIDING ON ALONG THE LAKE (end of chapter 2)
 // =====================================================================
 function lakeRideArt() {
-  const s = clock * 40; // scroll speed
+  const s = clock * 40;
   ['#7ab0e0', '#9ac4e8', '#bcd8ee', '#dceaf0'].forEach((c, i) => R(0, i * 10, LW, 10, c));
   disc(250, 16, 8, '#fff6c8');
   for (let i = 0; i < 3; i++) { const cx = ((i * 140 - clock * 4) % 420 + 420) % 420 - 50; R(cx, 10 + i * 7, 34, 4, '#f4f8fc'); R(cx + 8, 7 + i * 7, 18, 3, '#f4f8fc'); }
@@ -996,7 +974,6 @@ function lakeRideArt() {
   for (let x = 0; x < LW; x += 2) { const wx = x + s * 0.25; for (let j = 0; j < 6 + Math.round(3 * Math.sin(wx * 0.2)); j++) R(x, 46 - j, 2, 1, '#3e6a4a'); }
   R(0, 46, LW, 26, '#5a8ac0'); for (let y = 48; y < 72; y += 3) for (let x = ((y * 13 - s * 0.5) % 24 + 24) % 24 - 24; x < LW; x += 24) R(Math.round(x), y, 8, 1, '#7aa8d8');
   disc(250, 60, 3, '#fff6c8');
-  // near shore: reeds, the road, wildflowers
   R(0, 72, LW, 4, '#7a9a4a');
   for (let i = 0; i < 40; i++) { const rx = ((i * 37 - s * 0.8) % 340 + 340) % 340 - 10; R(Math.round(rx), 66 + (i % 3), 1, 8, '#4a6a2a'); R(Math.round(rx), 65 + (i % 3), 1, 2, '#7a5a34'); }
   R(0, 76, LW, 30, '#b08a58'); for (let i = 0; i < 30; i++) { const dx = ((i * 53 - s) % 340 + 340) % 340 - 10; R(Math.round(dx), 80 + (i * 7) % 24, 3, 1, '#9a7448'); }
