@@ -1261,7 +1261,7 @@ function draw() {
     dim(0.35); panel(W / 2 - 300, 170, 600, 160);
     if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
     else if (run) { text(run.title, W / 2, 194, 32, '#ffd23f', 'center'); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
-    else if ('label' in LEVELS[levelIdx]) { text(LEVELS[levelIdx].name, W / 2, 194, 32, '#ffd23f', 'center'); text(LEVELS[levelIdx].hint || '', W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
+    else { const L = LEVELS[levelIdx], lab = 'label' in L; text(lab ? L.name : 'LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(lab ? (L.hint || '') : L.name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
   }
   if (state === 'clear' && clearInfo) {
     const ci = clearInfo;
