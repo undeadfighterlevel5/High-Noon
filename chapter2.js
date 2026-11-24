@@ -4,7 +4,7 @@
 //  from the TEST button on the main title screen.
 //
 //  Flow:  ch2Room (night, fade to black) -> ch2Title (breakfast + badges)
-//         -> ch2Saloon (Eliza walks in) -> THE TRAIL (wagon ride)
+//         -> ch2Saloon (Eliza walks in) -> THE TRAIL (wagon race)
 //         -> ch2Cabin (sunset, keep watch) -> ch2Night (fade to black)
 //         -> ch2Dawn (surrounded!) -> THE CABIN (siege from the roof)
 //         -> ch2Lake (riding on along the lake) -> ch2End
@@ -29,7 +29,7 @@ const CH2_PATRONS = [ // card players + bar regulars
   { hat: 'cowboy', hatC: '#c8a46a', skin: '#c98a5a', hair: '#3a2a1a', shirt: '#c8b070', pants: '#4a4a5a', boots: '#3a2a1a', face: 'plain' },
 ];
 
-// tiny sign letters this chapter needs (newspaper headline)
+// tiny sign letters this chapter needs (newspaper headline, signs)
 Object.assign(GLYPH, {
   P: ['110', '101', '110', '100', '100'], D: ['110', '101', '101', '101', '110'], G: ['011', '100', '101', '101', '011'],
   H: ['101', '101', '111', '101', '101'], '&': ['010', '101', '010', '101', '011'], C: ['011', '100', '100', '100', '011'],
@@ -41,9 +41,9 @@ TUNES.morning = { // a slow, sunny porch waltz for the breakfast screen
   notes: tuneNotes('D4 - G4 - B4 - | D5 - - - B4 C5 | D5 - C5 - A4 - | G4 - - - - - | E4 - G4 - C5 - | B4 - - - A4 G4 | A4 - B4 - F#4 - | G4 - - - - -'),
   bass: ['G2', 'G2', 'C3', 'G2', 'C3', 'G2', 'D3', 'G2'], bar: 6, eighth: 60 / 84 / 2, vol: 0.08, style: 'waltz', birds: true,
 };
-TUNES.trail = { // driving minor-key gallop for the wagon ride (kept low so the gunfire sits on top)
+TUNES.trail = { // driving minor-key gallop for the wagon race (kept low so the gunfire sits on top)
   notes: tuneNotes('D4 - F4 A4 - A4 G4 F4 | E4 - - - A3 - D4 E4 | F4 - A4 C5 - C5 A4 G4 | A4 - - - E4 - C#4 - | D4 - F4 A4 - D5 C5 A4 | A#4 - A4 G4 - F4 - D4 | E4 - F4 E4 - C#4 - A3 | D4 - - - - - - -'),
-  bass: ['D2', 'D2', 'F2', 'A2', 'D2', 'A#2', 'A2', 'D2'], bar: 8, eighth: 60 / 150 / 2, vol: 0.055, style: 'gallop',
+  bass: ['D2', 'D2', 'F2', 'A2', 'D2', 'A#2', 'A2', 'D2'], bar: 8, eighth: 60 / 176 / 2, vol: 0.055, style: 'gallop',
 };
 
 // ---------------- SHARED HELPERS ----------------
@@ -298,7 +298,7 @@ CUTS.ch2Saloon = {
 SETS.saloonWide = { bg: () => saloonWideArt(CH2.enterAt != null && state === 'cut' && cutLine < GUS_LINE), fg: () => {} };
 
 // =====================================================================
-//  HORSES
+//  HORSES (side view, 32x24 grid, facing right unless flipped)
 // =====================================================================
 const HORSE_COATS = {
   bay:      { coat: '#8a4a24', dark: '#5a2e14', mane: '#2a1a10', light: '#a8603a' },
@@ -308,7 +308,6 @@ const HORSE_COATS = {
   pinto:    { coat: '#f0ece0', dark: '#c8c0b0', mane: '#3a2a1a', light: '#ffffff', spots: '#8a4a24' },
   palomino: { coat: '#d8a850', dark: '#a87a30', mane: '#f4efe0', light: '#ecc070' },
 };
-// side view (cutscenes: the wagon team), 32x24 grid, facing right unless flipped
 function horse(x, y, sc, fr, Hc, flip, blanket, moving = true) {
   let ox = 0, oy = 0, ink = false;
   const hp = (lx, ly, w, h, c) => R((flip ? x + (32 - lx - w) * sc : x + lx * sc) + ox, y + ly * sc + oy, w * sc, h * sc, ink ? INK : c);
@@ -330,80 +329,74 @@ function horse(x, y, sc, fr, Hc, flip, blanket, moving = true) {
   hp(6, 7, 17, 1, Hc.light); hp(6, 15, 17, 1, Hc.dark); hp(30, 5, 2, 2, Hc.dark); hp(27, 2, 1, 1, INK);
   if (blanket) { hp(10, 6, 9, 5, blanket); hp(10, 10, 9, 1, shade(blanket, 0.7)); hp(12, 5, 5, 2, '#5a3418'); }
 }
+function blitFlip(img, x, y, sc, flip, shear = 0) {
+  if (!flip) { blit(img, x, y, sc, shear); return; }
+  g.save(); g.translate(x * 2 + (GW + 2) * sc, 0); g.scale(-1, 1); blit(img, x, y, sc, shear); g.restore();
+}
 
 // =====================================================================
-//  LEVEL: THE TRAIL — riding shotgun on Eliza's wagon
-//  Pseudo-3D road: world x (lanes at -1, 0, 1) and distance z (1 = right
-//  under the horses' noses). Riders gallop up alongside; rocks and logs
-//  come down the trail and you steer around them with the arrows.
+//  LEVEL: THE TRAIL — a breakneck wagon race to Aunt Mae's cabin.
+//  Pseudo-3D dirt road with curves (you drift through them), bridges,
+//  rocks, logs, broken planks, and a handful of riders who try their luck.
+//  World x: lanes at -1, 0, 1. z = distance ahead (1 = under the horses' noses).
 // =====================================================================
-const HZ = 66, FOC = 104, GND = LH - HZ;                 // horizon line, focal length, ground height
-const RIDE = { lane: 0, cam: 0, dist: 0, v: 5, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 } };
-const projY = z => HZ + GND / z;
-const projX = (wx, z) => 160 + (wx - RIDE.cam) * FOC / z;
-const TRAIL_EASE = 1.35; // riders on the trail give you this much extra time vs. chapter 1 (on top of the difficulty)
-const RIDE_SPEED = { yellow: 4.2, deputy: 5, gunslinger: 6 }; // how fast the rocks come at you
-
+const HZ = 66, FOC = 104, GND = LH - HZ, FAR = 24, SPAWN = 22;
+const RACE_V = { yellow: 9, deputy: 11, gunslinger: 13 }; // ridiculous speed
+const MPH_PER_V = 6.8;                                      // speedometer: 13 = 88 MPH
+const TRAIL_EASE = 1.35;                                    // riders give you this much extra time vs. chapter 1
+const RIDE = {};
 const NATIVE_RIDERS = [
   { hat: 'feather', hatC: '#c0302b', featherC: '#f4efe0', skin: '#b8784a', hair: '#1b1410', hairLong: true, shirt: '#c8a070', vest: '#8a5a30', pants: '#8a6a40', boots: '#6a4a2a', face: 'plain' },
   { hat: 'feather', hatC: '#2a6a8a', featherC: '#3b2210', skin: '#a86a40', hair: '#1b1410', hairLong: true, shirt: '#b89060', pants: '#6a4a2a', boots: '#5a3a1a', face: 'plain' },
   { hat: 'feather', hatC: '#e2b33c', featherC: '#c0302b', skin: '#c08050', hair: '#2a1a10', hairLong: true, shirt: '#d8b888', vest: '#3a6a5a', pants: '#7a5a3a', boots: '#6a4a2a', face: 'plain' },
 ];
-const TRAVELERS = [ // innocent settlers on the trail
-  { hat: 'cowboy', hatC: '#c8a46a', skin: '#f0c090', hair: '#a0703a', shirt: '#4a7ab8', vest: '#d8d0c0', pants: '#4a4a5a', boots: '#3a2a1a', face: 'plain' },
-  { hat: 'cowboy', hatC: '#8a8a7a', skin: '#e8b07a', hair: '#d8d8d8', shirt: '#a85a3a', pants: '#5a4a3a', boots: '#3a2a1a', face: 'beard', beardC: '#e8e8e8' },
-  { hat: 'bowler', hatC: '#3a2a20', skin: '#f0c8a0', hair: '#5a3a1a', shirt: '#e8e0cc', vest: '#6a2a2a', pants: '#3a3a3a', boots: '#1b1410', face: 'mustache', beardC: '#5a3a1a' },
-];
 
-// Events (seconds into the ride):
-//   ['R', t, side L/R, near 1 / far 0, 'o'utlaw or 'b'ystander, who, seconds before they fire, wait-to-reveal 1/0]
-//   Bandits and natives are always hostile. Settlers are the only innocent riders.
-//   ['rock', t, lane]   ['log', t, laneA, laneB]   ['bird', t, dir]   ['bottles', t, side]   ['tumble', t, dir]
-const TRAIL = [
-  ['R', 2.0, 'L', 0, 'o', 'bandit', 1.9, 0],
-  ['rock', 4.0, 0],
-  ['bird', 5.5, -1],
-  ['R', 6.5, 'R', 1, 'b', 'settler', 1.8, 1],
-  ['R', 8.5, 'L', 1, 'o', 'native', 1.7, 1],
-  ['rock', 10.0, 1], ['bottles', 10.5, 'R'],
-  ['R', 12.0, 'R', 0, 'o', 'bandit', 1.6, 0],
-  ['R', 13.0, 'L', 0, 'b', 'settler', 1.8, 1],
-  ['log', 14.5, -1, 0],
-  ['R', 16.0, 'R', 1, 'o', 'bandit', 1.6, 1],
-  ['tumble', 17.0, 1],
-  ['rock', 18.5, -1],
-  ['R', 19.0, 'L', 1, 'o', 'native', 1.5, 0],
-  ['bird', 21.0, 1], ['bird', 21.6, 1],
-  ['R', 22.5, 'R', 0, 'o', 'native', 1.5, 1],
+// The course (seconds into the race):
+//   ['rock', t, lane]  ['log', t, laneA, laneB]  ['hole', t, lane] (broken planks, bridges only)
+//   ['curve', t, seconds, bend (+ right / - left)]  ['bridge', t, seconds]
+//   ['R', t, side L/R, near 1 / far 0, 'bandit' | 'native', seconds before they fire]
+//   ['bird', t, dir]  ['bottles', t, side]  ['tumble', t, dir]  ['boost', t]  ['sign', t]
+const RACE = [
+  ['rock', 2.0, 0],
+  ['curve', 3.0, 3.5, 0.035], ['rock', 3.8, 1],
+  ['bird', 4.5, 1],
+  ['log', 5.6, -1, 0],
+  ['R', 6.5, 'L', 1, 'bandit', 1.7],
+  ['rock', 7.6, -1], ['rock', 8.4, 1],
+  ['curve', 9.0, 3, -0.045], ['log', 9.8, 0, 1],
+  ['bottles', 10.5, 'L'],
+  ['bridge', 12.0, 3.2], ['hole', 12.6, 0], ['hole', 13.6, -1], ['hole', 14.4, 1],
+  ['R', 16.5, 'R', 1, 'native', 1.6],
+  ['rock', 17.0, 0],
+  ['curve', 18.0, 4, 0.045], ['rock', 18.8, 1], ['log', 19.8, -1, 0], ['rock', 21.0, -1],
+  ['tumble', 21.5, -1],
+  ['R', 22.5, 'L', 0, 'bandit', 1.6],
   ['log', 23.5, 0, 1],
-  ['R', 25.0, 'L', 1, 'b', 'settler', 1.7, 1],
-  ['R', 26.0, 'R', 1, 'o', 'bandit', 1.4, 1],
-  ['rock', 27.5, 0], ['rock', 28.6, -1],
-  ['bottles', 29.0, 'L'],
-  ['R', 30.5, 'L', 0, 'o', 'bandit', 1.4, 0], ['R', 31.0, 'R', 0, 'o', 'native', 1.4, 0],
-  ['tumble', 33.0, -1],
-  ['R', 34.0, 'L', 1, 'o', 'bandit', 1.3, 1],
-  ['log', 35.0, -1, 0],
-  ['R', 36.5, 'R', 1, 'b', 'settler', 1.6, 1],
-  ['bird', 37.5, -1],
-  ['R', 38.5, 'R', 0, 'o', 'bandit', 1.3, 1], ['R', 39.0, 'L', 1, 'o', 'native', 1.25, 0],
-  ['rock', 40.5, 1], ['rock', 41.3, 0],
-  ['bottles', 42.0, 'R'],
-  ['R', 43.5, 'L', 0, 'o', 'native', 1.2, 1], ['R', 44.0, 'R', 1, 'o', 'bandit', 1.2, 1],
-  ['log', 45.5, 0, 1],
-  ['R', 46.5, 'L', 1, 'b', 'settler', 1.5, 1],
-  ['R', 47.5, 'R', 1, 'o', 'bandit', 1.15, 0],
-  ['bird', 48.5, 1],
-  ['rock', 49.5, -1], ['rock', 50.2, 1],
-  ['R', 51.5, 'L', 0, 'o', 'bandit', 1.1, 0], ['R', 52.0, 'R', 0, 'o', 'native', 1.1, 0], ['R', 52.6, 'L', 1, 'o', 'native', 1.1, 1],
-  ['tumble', 54.5, 1], ['bottles', 55.0, 'L'],
-  ['R', 56.0, 'R', 1, 'o', 'bandit', 1.05, 1],
-  ['rock', 58.0, 0], ['log', 58.8, -1, 0],
-  ['bird', 60.0, -1], ['bird', 60.5, -1],
-  ['R', 61.5, 'L', 1, 'b', 'settler', 1.4, 1], ['R', 62.5, 'R', 1, 'o', 'bandit', 1.0, 1],
-  ['R', 64.0, 'L', 0, 'o', 'bandit', 1.0, 0], ['R', 64.5, 'R', 0, 'o', 'native', 1.0, 1],
-  ['R', 66.5, 'L', 1, 'o', 'bandit', 0.95, 0], ['R', 67.0, 'R', 1, 'o', 'native', 0.95, 0],
-].filter(e => e[1] <= 47.5).sort((a, b) => a[1] - b[1]); // ~48-second ride
+  ['curve', 24.5, 3, -0.05], ['rock', 25.2, -1], ['rock', 26.0, 0],
+  ['bird', 26.5, -1], ['bird', 27.0, -1],
+  ['bridge', 28.5, 3.5], ['hole', 29.0, 1], ['hole', 29.8, 0], ['hole', 30.6, -1], ['hole', 31.3, 1],
+  ['R', 33.0, 'R', 0, 'native', 1.5],
+  ['curve', 33.5, 4, 0.04], ['log', 34.5, -1, 0], ['rock', 35.5, 1], ['rock', 36.3, 0],
+  ['bottles', 36.5, 'R'],
+  ['R', 37.5, 'L', 1, 'bandit', 1.4],
+  ['curve', 38.5, 3, -0.04], ['log', 39.2, 0, 1], ['rock', 40.2, -1],
+  ['tumble', 40.5, 1],
+  ['boost', 42.0], ['sign', 42.5],
+].sort((a, b) => a[1] - b[1]);
+const RACE_END = 46;
+
+// ---------------- road geometry (curves bend the road toward the horizon) ----------------
+const SH_STEP = 0.2, SH = new Float32Array(Math.ceil(FAR / SH_STEP) + 2);
+function curvAt(z) {
+  let k = 0;
+  for (const c of RIDE.curves) if (z >= c.z && z <= c.z + c.len) k += c.k * Math.min(1, (z - c.z) / 2, (c.z + c.len - z) / 2);
+  return k;
+}
+function buildShift() { let x = 0, slope = 0; for (let i = 0; i < SH.length; i++) { SH[i] = x; slope += curvAt(i * SH_STEP) * SH_STEP; x += slope * SH_STEP; } }
+const shiftAt = z => { const f = Math.max(0, Math.min(SH.length - 1.001, z / SH_STEP)), i = f | 0; return SH[i] + (SH[i + 1] - SH[i]) * (f - i); };
+const projY = z => HZ + GND / z;
+const projX = (wx, z) => 160 + (wx + shiftAt(z) - RIDE.cam) * FOC / z;
+const onBridge = z => RIDE.bridges.some(b => z >= b.z && z <= b.z + b.len);
 
 // ---------------- spawning ----------------
 function spawnDeco(z) {
@@ -411,35 +404,25 @@ function spawnDeco(z) {
   RIDE.deco.push({ kind: k < 0.4 ? 'cactus' : k < 0.75 ? 'bush' : 'stone', wx: side * (2.3 + Math.random() * 3.2), z, s: 0.8 + Math.random() * 0.5 });
 }
 function mkRider(e) {
-  const [, , sideS, near, ty, who, win, wait] = e, side = sideS === 'L' ? -1 : 1;
-  const spec = who === 'bandit' ? pick(OUTLAWS) : who === 'native' ? pick(NATIVE_RIDERS) : pick(TRAVELERS);
-  const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : who === 'bandit' ? pick(['black', 'bay', 'gray']) : pick(['chestnut', 'palomino', 'gray'])];
+  const [, , sideS, near, who, win] = e, side = sideS === 'L' ? -1 : 1;
+  const spec = who === 'bandit' ? pick(OUTLAWS) : pick(NATIVE_RIDERS);
+  const coat = HORSE_COATS[who === 'native' ? pick(['pinto', 'palomino', 'bay']) : pick(['black', 'bay', 'gray'])];
   const tx = near ? (side < 0 ? 2 : LW - 66) : (side < 0 ? 66 : LW - 98);
-  return { near: !!near, side, who, type: ty === 'o' ? 'outlaw' : 'bystander', spec, coat,
-    blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : who === 'bandit' ? '#3a2a2a' : '#7a2a2a',
-    window: win * diff.mult * TRAIL_EASE, wait: !!wait, phase: 'in', age: 0, pt: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
+  return { near: !!near, side, who, type: 'outlaw', spec, coat, blanket: who === 'native' ? pick(['#c0302b', '#2a6a8a', '#e2b33c']) : '#3a2a2a',
+    window: win * diff.mult * TRAIL_EASE, phase: 'in', age: 0, dead: false, deadTime: 0, seed: Math.random() * 4,
     x: side < 0 ? (near ? -80 : -40) : LW + (near ? 16 : 8), tx };
 }
 const slotBusy = r => RIDE.riders.some(o => o.near === r.near && o.side === r.side);
-const revealed = r => !r.wait || r.phase === 'show' || r.phase === 'out';
+const revealed = r => true; // everyone on this trail is hostile
 
-// ---------------- rider geometry + drawing (side view) ----------------
-function blitFlip(img, x, y, sc, flip, shear = 0) {
-  if (!flip) { blit(img, x, y, sc, shear); return; }
-  g.save(); g.translate(x * 2 + (GW + 2) * sc, 0); g.scale(-1, 1); blit(img, x, y, sc, shear); g.restore();
-}
+// ---------------- riders (side view) ----------------
 function riderGeom(r) {
-  const sc = r.near ? 2 : 1, base = r.near ? 154 : 100, fr = Math.floor(clock * 9 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
+  const sc = r.near ? 2 : 1, base = r.near ? 154 : 100, fr = Math.floor(clock * 12 + r.seed) % 4, bob = fr === 1 || fr === 2 ? sc : 0;
   const hx = Math.round(r.x - RIDE.cam * (r.near ? 34 : 14)), hy = base - 23 * sc - bob, flip = r.side > 0;
   const sx = hx + (flip ? 18 : 14) * sc - 10 * sc, sy = hy + 7 * sc - 21 * sc;
   return { sc, fr, hx, hy, flip, sx, sy };
 }
 const riderBox = (r, G) => ({ x: G.sx + 3 * G.sc, y: G.sy, w: 14 * G.sc, h: 24 * G.sc });
-function riderPose(r) {
-  if (!revealed(r)) return 'idle';
-  if (r.type === 'bystander') return 'wave';
-  return r.who === 'native' ? 'bow' : 'aim';
-}
 function drawRider(r) {
   const G = riderGeom(r), sc = G.sc;
   if (r.dead) { // the horse gallops straight off the side of the screen, the rider tumbles off the back
@@ -447,15 +430,14 @@ function drawRider(r) {
     horse(G.hx + Math.round(dir * t * 90 * sc), G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
     const fx = G.sx - Math.round(dir * t * 20 * sc), fy = G.sy + Math.round(-30 * sc * t + 220 * sc * t * t);
     if (fy < LH + 10) blitFlip(getSprite({ ...r.spec, pose: 'hit', hat: 'none' }, t < 0.1), fx, fy, sc, G.flip, Math.round(-dir * Math.min(1, t * 3) * 8));
-    if (t > 0.4 && t < 1) for (let i = 0; i < 3; i++) R(G.sx + (i * 6 - 2) * sc, G.hy + 22 * sc - Math.round((t - 0.4) * 16), 4 * sc, 2 * sc, 'rgba(200,170,120,0.6)'); // dust
     return;
   }
-  blitFlip(getSprite({ ...r.spec, pose: riderPose(r) }), G.sx, G.sy, sc, G.flip);
+  blitFlip(getSprite({ ...r.spec, pose: r.who === 'native' ? 'bow' : 'aim' }), G.sx, G.sy, sc, G.flip);
   horse(G.hx, G.hy, sc, G.fr, r.coat, G.flip, r.blanket);
-  if (r.type === 'outlaw' && r.phase === 'show') {
+  if (r.phase === 'show') {
     const p = Math.max(0, 1 - r.age / r.window), bx = G.sx + 2 * sc, bw = 16 * sc, by = G.sy - 5;
     R(bx - 1, by - 1, bw + 2, 4, INK); R(bx, by, Math.round(bw * p), 2, p > 0.4 ? '#ffd23f' : '#ff3b30');
-    if (r.age > r.window * 0.6 && Math.floor(r.age * 12) % 2) { // about to fire!
+    if (r.age > r.window * 0.6 && Math.floor(r.age * 12) % 2) {
       const gx = r.who === 'native' ? 17 : 19, gy = r.who === 'native' ? 12 : 11;
       R(G.flip ? G.sx + (20 - gx - 2) * sc : G.sx + gx * sc, G.sy + gy * sc, 2 * sc, 3 * sc, '#fff36b');
     }
@@ -468,7 +450,7 @@ function knockRider(r) {
   if (r.who === 'bandit') effects.push({ phys: true, gun: true, sc, x: G.sx + 16 * sc, y: G.sy + 13 * sc, vx: d * 30, vy: -50, life: 0.9 });
 }
 
-// ---------------- obstacles + scenery drawing ----------------
+// ---------------- obstacles + scenery ----------------
 function boulder(cx, by, w, h) {
   cx = Math.round(cx); by = Math.round(by); w = Math.max(2, Math.round(w)); h = Math.max(2, Math.round(h));
   R(cx - Math.round(w * 0.6), by - 1, Math.round(w * 1.2), Math.max(1, Math.round(h * 0.15)), 'rgba(60,30,10,0.35)');
@@ -486,8 +468,15 @@ function logObs(o) {
   R(x1, by - h, x2 - x1, h, '#7a4a24'); R(x1, by - h, x2 - x1, Math.max(1, Math.round(h * 0.25)), '#9a6236'); R(x1, by - Math.max(1, Math.round(h * 0.2)), x2 - x1, Math.max(1, Math.round(h * 0.2)), '#5a3418');
   for (let x = x1 + 6; x < x2 - 4; x += Math.max(4, Math.round(s * 0.18))) R(x, by - h + 1, 1, Math.max(1, h - 2), '#5a3418');
   R(x2 - Math.max(2, Math.round(h * 0.5)), by - h, Math.max(2, Math.round(h * 0.5)), h, '#c8a070');
-  if (h > 5) R(x2 - Math.round(h * 0.35), by - Math.round(h * 0.6), Math.max(1, Math.round(h * 0.2)), Math.max(1, Math.round(h * 0.2)), '#8a5a30');
-  if (h > 8) { R(x1 + Math.round((x2 - x1) * 0.3), by - h - Math.round(h * 0.5), 2, Math.round(h * 0.5), '#5a3418'); }
+}
+function holeObs(o) { // broken planks: you can see the river through the gap
+  const ya = Math.round(projY(o.z + 0.9)), yb = Math.round(projY(o.z));
+  for (let y = ya; y <= yb; y++) {
+    const z = GND / Math.max(0.5, y - HZ + 0.5), xa = Math.round(projX(o.lanes[0] - 0.5, z)), xb = Math.round(projX(o.lanes[0] + 0.5, z));
+    R(xa, y, xb - xa, 1, (y + Math.floor(clock * 8)) % 3 ? '#1e3a58' : '#2e5a80');
+  }
+  const xa = Math.round(projX(o.lanes[0] - 0.5, o.z)), xb = Math.round(projX(o.lanes[0] + 0.5, o.z));
+  for (let x = xa; x < xb; x += 3) R(x, yb - ((x >> 1) % 2), 2, 2, '#5a3418');
 }
 function cactusAt(x, by, s) {
   const w = Math.max(1, Math.round(0.16 * s)), h = Math.max(3, Math.round(0.9 * s)), aw = Math.max(1, Math.round(0.2 * s));
@@ -495,7 +484,7 @@ function cactusAt(x, by, s) {
   R(x - (w >> 1), by - h, w, h, '#3a7a3a'); R(x - (w >> 1), by - h, Math.max(1, w >> 2), h, '#5a9a4a');
   if (h > 8) {
     R(x - (w >> 1) - aw, by - Math.round(h * 0.55), aw, Math.max(1, Math.round(w * 0.7)), '#3a7a3a'); R(x - (w >> 1) - aw, by - Math.round(h * 0.8), Math.max(1, Math.round(w * 0.7)), Math.round(h * 0.25), '#3a7a3a');
-    R(x + (w >> 1) + (w & 1), by - Math.round(h * 0.42), aw, Math.max(1, Math.round(w * 0.7)), '#3a7a3a'); R(x + (w >> 1) + (w & 1) + aw - Math.max(1, Math.round(w * 0.7)), by - Math.round(h * 0.62), Math.max(1, Math.round(w * 0.7)), Math.round(h * 0.2), '#3a7a3a');
+    R(x + (w >> 1) + (w & 1), by - Math.round(h * 0.42), aw, Math.max(1, Math.round(w * 0.7)), '#3a7a3a');
   }
 }
 function bushAt(x, by, s) { const w = Math.max(2, Math.round(0.35 * s)), h = Math.max(1, Math.round(0.16 * s)); dither(Math.round(x - w / 2), Math.round(by - h), w, h, '#7a8a3a'); R(Math.round(x - w / 3), Math.round(by - h / 2), Math.round(w * 0.66), Math.max(1, Math.round(h / 2)), '#6a7a30'); }
@@ -509,17 +498,23 @@ function drawPost(p) {
   R(Math.round(P2.x - 0.16 * P2.s), Math.round(P2.top), Math.max(2, Math.round(0.32 * P2.s)), Math.max(1, Math.round(0.03 * P2.s)), '#8a5530');
   p.bottles.forEach((b, i) => { if (!b.alive) return; const B = bottleBox(p, i); R(Math.round(B.x), Math.round(B.y), Math.max(1, Math.round(B.w)), Math.round(B.h), b.c); R(Math.round(B.x), Math.round(B.y), 1, Math.max(1, Math.round(B.h / 3)), '#e8f4f4'); });
 }
+function drawSign(p) { // "CABIN ->" sign at the end of the race
+  const s = FOC / p.z, x = Math.round(projX(p.wx, p.z)), by = Math.round(projY(p.z)), w = Math.max(4, Math.round(0.9 * s)), h = Math.max(2, Math.round(0.35 * s));
+  R(x - 1, by - Math.round(0.9 * s), Math.max(1, Math.round(0.06 * s)), Math.round(0.9 * s), '#5a3418');
+  R(x - (w >> 1), by - Math.round(0.95 * s), w, h, '#c8a070'); R(x - (w >> 1), by - Math.round(0.95 * s), w, 1, '#e8c890');
+  if (s > 30) { signText('CABIN', x - 3, by - Math.round(0.95 * s) + 2, '#3b2210'); R(x + (w >> 1) - 6, by - Math.round(0.95 * s) + h / 2 - 1, 4, 1, '#8a1f1a'); }
+}
 function tumbleGeom(t) { const s = FOC / t.z, r = Math.max(2, Math.round(0.13 * s)); return { x: Math.round(projX(t.wx, t.z)), y: Math.round(projY(t.z) - r - Math.abs(Math.sin(t.wx * 3)) * r), r }; }
-function drawTumbleweed(t) { const T = tumbleGeom(t); ring(T.x, T.y, T.r, Math.max(0, T.r - 1), '#8a6a3a'); const a = t.wx * 4; line(T.x - Math.cos(a) * T.r, T.y - Math.sin(a) * T.r, T.x + Math.cos(a) * T.r, T.y + Math.sin(a) * T.r, '#a8864a'); line(T.x - Math.sin(a) * T.r, T.y + Math.cos(a) * T.r, T.x + Math.sin(a) * T.r, T.y - Math.cos(a) * T.r, '#a8864a'); }
+function drawTumbleweed(t) { const T = tumbleGeom(t); ring(T.x, T.y, T.r, Math.max(0, T.r - 1), '#8a6a3a'); const a = t.wx * 4; line(T.x - Math.cos(a) * T.r, T.y - Math.sin(a) * T.r, T.x + Math.cos(a) * T.r, T.y + Math.sin(a) * T.r, '#a8864a'); }
 function drawBird(b) {
   const x = Math.round(b.x), y = Math.round(b.y), up = !b.dead && Math.floor(clock * 8 + b.seed) % 2, d = b.vx > 0 ? 1 : -1;
   R(x - 3, y, 7, 2, '#2a2228'); R(x + d * 3, y - 1, 2, 2, '#2a2228'); R(x + d * 5, y, 1, 1, '#e2b33c');
   if (b.dead) { R(x - 2, y + 2, 5, 1, '#2a2228'); return; }
   if (up) { R(x - 4, y - 3, 3, 3, '#2a2228'); R(x + 1, y - 3, 3, 3, '#2a2228'); } else { R(x - 5, y + 2, 4, 2, '#2a2228'); R(x + 2, y + 2, 4, 2, '#2a2228'); }
 }
-// the wagon team, seen from the driver's bench
-function horseRear(cx, by, Hc, swish) {
-  const top = by - 62;
+// the wagon team from the driver's bench — they lean into the curves
+function horseRear(cx, by, Hc, swish, lean) {
+  const top = by - 62, o = y => cx + Math.round(lean * (by - y) * 0.14);
   const hwAt = y => {
     const d = y - top;
     if (d < 9) return 5;
@@ -528,42 +523,41 @@ function horseRear(cx, by, Hc, swish) {
     const k = (y - (by - 12)) / 17;
     return Math.max(12, Math.round(21 * Math.sqrt(Math.max(0, 1 - k * k))));
   };
-  for (let y = top; y < by; y++) { const hw = hwAt(y); R(cx - hw - 1, y, hw * 2 + 2, 1, INK); }
-  R(cx - 3, top - 1, 6, 1, INK);
+  for (let y = top; y < by; y++) { const hw = hwAt(y); R(o(y) - hw - 1, y, hw * 2 + 2, 1, INK); }
   for (let y = top; y < by; y++) {
-    const hw = hwAt(y), d = y - top;
-    R(cx - hw, y, hw * 2, 1, Hc.coat);
-    R(cx + Math.round(hw * 0.5), y, hw - Math.round(hw * 0.5), 1, Hc.dark);
-    if (d > 36) R(cx - hw + 2, y, Math.max(1, Math.round(hw * 0.35)), 1, Hc.light);
+    const hw = hwAt(y), d = y - top, X = o(y);
+    R(X - hw, y, hw * 2, 1, Hc.coat); R(X + Math.round(hw * 0.5), y, hw - Math.round(hw * 0.5), 1, Hc.dark);
+    if (d > 36) R(X - hw + 2, y, Math.max(1, Math.round(hw * 0.35)), 1, Hc.light);
+    if (d < 22) R(X - 1, y, 2, 1, Hc.mane);
   }
-  R(cx - 4, top - 4, 2, 4, Hc.coat); R(cx + 2, top - 4, 2, 4, Hc.coat); R(cx - 4, top - 5, 2, 1, INK); R(cx + 2, top - 5, 2, 1, INK);
-  R(cx - 1, top, 2, 22, Hc.mane); R(cx - 2, top + 2, 1, 3, Hc.mane);
-  R(cx - 6, top + 20, 12, 3, '#2a1a10'); R(cx - 5, top + 20, 10, 1, '#c9a040');
-  R(cx - 9, top + 30, 18, 4, '#2a1a10'); R(cx - 2, top + 31, 4, 2, '#c9a040');
-  R(cx - hwAt(by - 16), by - 16, hwAt(by - 16) * 2, 2, '#2a1a10');
-  R(cx - 1, by - 26, 2, 4, Hc.dark);
-  const tx = cx + swish; R(tx - 3, by - 24, 6, 6, Hc.mane); R(tx - 2, by - 18, 5, 18, Hc.mane); R(tx - 1, by - 18, 1, 18, shade(Hc.mane, 1.4));
+  const T = o(top);
+  R(T - 4, top - 4, 2, 4, Hc.coat); R(T + 2, top - 4, 2, 4, Hc.coat); R(T - 4, top - 5, 2, 1, INK); R(T + 2, top - 5, 2, 1, INK);
+  const C = o(top + 20); R(C - 6, top + 20, 12, 3, '#2a1a10'); R(C - 5, top + 20, 10, 1, '#c9a040');
+  const Pd = o(top + 30); R(Pd - 9, top + 30, 18, 4, '#2a1a10'); R(Pd - 2, top + 31, 4, 2, '#c9a040');
+  const Bk = o(by - 16); R(Bk - hwAt(by - 16), by - 16, hwAt(by - 16) * 2, 2, '#2a1a10');
+  const tx = o(by - 12) + swish; R(tx - 3, by - 24, 6, 6, Hc.mane); R(tx - 2, by - 18, 5, 18, Hc.mane); R(tx - 1, by - 18, 1, 18, shade(Hc.mane, 1.4));
 }
 function drawTeam() {
-  const b = Math.floor(clock * 9) % 2, sw = Math.round(Math.sin(clock * 3) * 2);
-  horseRear(132, 178 + b, HORSE_COATS.bay, sw); horseRear(188, 178 + (1 - b), HORSE_COATS.chestnut, -sw);
-  line(52, 180, 126, 137 + b, '#2a1a10'); line(56, 180, 182, 137 + (1 - b), '#2a1a10');
+  const b = Math.floor(clock * 15) % 2, sw = Math.round(Math.sin(clock * 6) * 2), L = RIDE.lean, slide = Math.round(-L * 8);
+  horseRear(132 + slide, 178 + b, HORSE_COATS.bay, sw, L); horseRear(188 + slide, 178 + (1 - b), HORSE_COATS.chestnut, -sw, L);
+  const tip = Math.round(L * 62 * 0.14);
+  line(52, 180, 126 + slide + tip * 0.7, 137 + b, '#2a1a10'); line(56, 180, 182 + slide + tip * 0.7, 137 + (1 - b), '#2a1a10');
   R(0, 172, 320, 8, '#6e4224'); R(0, 172, 320, 1, '#9a6236'); R(0, 176, 320, 1, '#5a3418');
-  for (const x of [20, 300]) { R(x, 168, 4, 4, '#4a2a14'); }
+  for (const x of [20, 300]) R(x, 168, 4, 4, '#4a2a14');
   R(40, 174, 18, 6, '#3a4466'); R(46, 172, 10, 3, '#f0c8a0');
 }
 
-// ---------------- the ride itself ----------------
+// ---------------- driving ----------------
 const STEER = { l: { x: W - 210, y: H - 108, w: 96, h: 96 }, r: { x: W - 108, y: H - 108, w: 96, h: 96 } };
 function steer(d) {
   RIDE.press[d < 0 ? 'l' : 'r'] = 0.15;
   const n = Math.max(-1, Math.min(1, RIDE.lane + d));
   if (n === RIDE.lane) { sfx.empty(); return; }
-  RIDE.lane = n; noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08);
+  RIDE.lane = n; noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08); // crack of the reins
 }
-function crash(o) {
-  shake = Math.max(shake, 0.6); sfx.thud(); noise(0.4, 0.6, 700);
-  burst(160, 150, 16, ['#9a846e', '#7a6652', '#c8a070', '#5a3418'], 90);
+function crash() {
+  shake = Math.max(shake, 0.7); sfx.thud(); noise(0.4, 0.6, 700);
+  burst(160, 150, 18, ['#9a846e', '#7a6652', '#c8a070', '#5a3418'], 110);
   hurt('crash', null);
 }
 function riderFires(r) {
@@ -572,93 +566,101 @@ function riderFires(r) {
   hurt(r.who === 'native' ? 'arrow' : 'shot', null);
 }
 RUNS.trail = {
-  label: 'CH. 2', name: 'THE TRAIL', title: 'THE TRAIL', hint: 'ARROWS STEER THE WAGON', tune: 'trail',
+  label: 'CH. 2', name: 'THE TRAIL', title: 'THE TRAIL', hint: 'ARROWS STEER - DRIFT THE CURVES!', tune: 'trail',
   hurtText: {
     shot: { title: 'BUSHWHACKED!', reason: 'A BANDIT GOT YOU FIRST.', color: '#ff3b30' },
     arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE WAS QUICKER ON THE DRAW.', color: '#ff3b30' },
     crash: { title: 'WAGON WRECK!', reason: 'KEEP AN EYE ON THE TRAIL.', color: '#ffb347' },
-    bystander: { title: 'INNOCENT DOWN!', reason: 'WAIT FOR A RIDER TO SHOW HIS HAND.', color: '#7fb2ff' },
   },
   reset() {
-    Object.assign(RIDE, { lane: 0, cam: 0, dist: 0, v: RIDE_SPEED[diff.key] || 5, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 } });
-    for (let z = 1.3; z < 16; z += 0.45) spawnDeco(z);
-    for (let z = 1.5; z < 16; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
+    Object.assign(RIDE, { lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
+      curves: [], bridges: [], signs: [], dust: [], ei: 0, decoT: 0, poleAcc: 0, press: { l: 0, r: 0 }, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
+    for (let z = 1.3; z < SPAWN; z += 0.45) spawnDeco(z);
+    for (let z = 1.5; z < SPAWN; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
   },
-  tick(dt) {
-    RIDE.cam += (RIDE.lane - RIDE.cam) * Math.min(1, dt * 9);
+  tick(dt) { // the world rolls by (also during the intro / clear screens)
+    RIDE.cam += (RIDE.lane - RIDE.cam) * Math.min(1, dt * 10);
+    if (RIDE.boost) { const vt = 88 / MPH_PER_V + 0.05; RIDE.v = Math.min(Math.max(RIDE.v, vt), RIDE.v + dt * 3); }
     const dz = RIDE.v * dt; RIDE.dist += dz;
-    for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles]) for (const o of list) o.z -= dz;
+    for (const list of [RIDE.deco, RIDE.obs, RIDE.posts, RIDE.tumbles, RIDE.curves, RIDE.bridges, RIDE.signs]) for (const o of list) o.z -= dz;
     for (const t of RIDE.tumbles) t.wx += t.vx * dt;
-    RIDE.decoT -= dt; if (RIDE.decoT <= 0) { spawnDeco(16); RIDE.decoT = 0.15 + Math.random() * 0.2; }
-    RIDE.poleAcc += dz; if (RIDE.poleAcc >= 2.2) { RIDE.poleAcc -= 2.2; RIDE.posts.push({ pole: true, wx: 2.9, z: 16 }); }
-    RIDE.deco = RIDE.deco.filter(o => o.z > 0.7); RIDE.posts = RIDE.posts.filter(o => o.z > 0.7);
-    RIDE.obs = RIDE.obs.filter(o => o.z > 0.8); RIDE.tumbles = RIDE.tumbles.filter(t => t.z > 0.8 && Math.abs(t.wx) < 4.5);
+    RIDE.decoT -= dt; if (RIDE.decoT <= 0) { spawnDeco(SPAWN); RIDE.decoT = (0.15 + Math.random() * 0.2) * 5 / RIDE.v; }
+    RIDE.poleAcc += dz; if (RIDE.poleAcc >= 2.2) { RIDE.poleAcc -= 2.2; RIDE.posts.push({ pole: true, wx: 2.9, z: SPAWN }); }
+    RIDE.deco = RIDE.deco.filter(o => o.z > 0.7); RIDE.posts = RIDE.posts.filter(o => o.z > 0.7); RIDE.signs = RIDE.signs.filter(o => o.z > 0.7);
+    RIDE.obs = RIDE.obs.filter(o => o.z > 0.6); RIDE.tumbles = RIDE.tumbles.filter(t => t.z > 0.8 && Math.abs(t.wx) < 4.5);
+    RIDE.curves = RIDE.curves.filter(c => c.z + c.len > -1); RIDE.bridges = RIDE.bridges.filter(b => b.z + b.len > 0);
     for (const b of RIDE.birds) { b.x += b.vx * dt; if (b.dead) { b.vy += 300 * dt; b.y += b.vy * dt; } }
     RIDE.birds = RIDE.birds.filter(b => b.x > -20 && b.x < LW + 20 && b.y < LH + 10);
     RIDE.press.l = Math.max(0, RIDE.press.l - dt); RIDE.press.r = Math.max(0, RIDE.press.r - dt);
+    // drifting: the wagon swings out and the horses lean into the bend
+    const kNear = curvAt(1.5);
+    RIDE.lean += (Math.max(-1, Math.min(1, kNear / 0.04)) - RIDE.lean) * Math.min(1, dt * 5);
+    RIDE.sky -= kNear * RIDE.v * dt * 160;
+    if (Math.abs(RIDE.lean) > 0.35) {
+      if (!RIDE.drifting) { RIDE.drifting = true; noise(0.5, 0.12, 1800); }
+      if (Math.random() < 0.8) RIDE.dust.push({ x: RIDE.lean > 0 ? 30 + Math.random() * 40 : 250 + Math.random() * 40, y: 170, vx: (RIDE.lean > 0 ? -1 : 1) * (60 + Math.random() * 80), vy: -20 - Math.random() * 40, t: 0 });
+    } else RIDE.drifting = false;
+    for (const d of RIDE.dust) { d.t += dt; d.x += d.vx * dt; d.y += d.vy * dt; }
+    RIDE.dust = RIDE.dust.filter(d => d.t < 0.7);
   },
   update(dt) {
     this.tick(dt);
-    while (RIDE.ei < TRAIL.length && TRAIL[RIDE.ei][1] <= time) {
-      const e = TRAIL[RIDE.ei++], k = e[0];
+    while (RIDE.ei < RACE.length && RACE[RIDE.ei][1] <= time) {
+      const e = RACE[RIDE.ei++], k = e[0];
       if (k === 'R') RIDE.pending.push(e);
-      else if (k === 'rock') RIDE.obs.push({ kind: 'rock', lanes: [e[2]], z: 15 });
-      else if (k === 'log') RIDE.obs.push({ kind: 'log', lanes: [e[2], e[3]], z: 15 });
+      else if (k === 'rock') RIDE.obs.push({ kind: 'rock', lanes: [e[2]], z: SPAWN });
+      else if (k === 'log') RIDE.obs.push({ kind: 'log', lanes: [e[2], e[3]], z: SPAWN });
+      else if (k === 'hole') RIDE.obs.push({ kind: 'hole', lanes: [e[2]], z: SPAWN });
+      else if (k === 'curve') RIDE.curves.push({ z: SPAWN, len: RIDE.v * e[2], k: e[3] });
+      else if (k === 'bridge') RIDE.bridges.push({ z: SPAWN, len: RIDE.v * e[2] });
       else if (k === 'bird') RIDE.birds.push({ x: e[2] > 0 ? -10 : LW + 10, y: 14 + Math.random() * 36, vx: e[2] * (50 + Math.random() * 20), vy: 0, dead: false, seed: Math.random() * 4 });
-      else if (k === 'bottles') RIDE.posts.push({ wx: (e[2] === 'L' ? -1 : 1) * 1.95, z: 15, bottles: [0, 1, 2].map(() => ({ alive: true, c: pick(['#3a7a3a', '#7a4a1a', '#8a2a2a']) })) });
-      else if (k === 'tumble') RIDE.tumbles.push({ wx: -3.5 * e[2], vx: 1.7 * e[2], z: 7 + Math.random() * 2 });
+      else if (k === 'bottles') RIDE.posts.push({ wx: (e[2] === 'L' ? -1 : 1) * 2.1, z: SPAWN, bottles: [0, 1, 2].map(() => ({ alive: true, c: pick(['#3a7a3a', '#7a4a1a', '#8a2a2a']) })) });
+      else if (k === 'tumble') RIDE.tumbles.push({ wx: -3.5 * e[2], vx: 2.2 * e[2], z: 9 + Math.random() * 3 });
+      else if (k === 'boost') RIDE.boost = true;
+      else if (k === 'sign') RIDE.signs.push({ wx: 2.3, z: SPAWN });
     }
-    RIDE.pending = RIDE.pending.filter(e => {
-      const r = mkRider(e); if (slotBusy(r)) return true;
-      RIDE.riders.push(r); if (r.type === 'outlaw' && !r.wait) sfx.cock(); return false;
-    });
+    if (RIDE.boost && !RIDE.hit88 && RIDE.v * MPH_PER_V >= 88) { // great Scott!
+      RIDE.hit88 = true; popText(160, 70, '88 MPH!'); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone('square', f, f, 0.1, 0.06), i * 70));
+    }
+    const kNear = curvAt(1.5); // drift bonus: hug the inside lane through a bend
+    if (Math.abs(kNear) > 0.015 && Math.sign(kNear) === RIDE.lane) {
+      RIDE.driftT += dt; if (RIDE.driftT >= 0.5) { RIDE.driftT -= 0.5; addScore(50, 'obj'); popText(160, 120, 'DRIFT +50'); }
+    } else RIDE.driftT = 0;
+    RIDE.pending = RIDE.pending.filter(e => { const r = mkRider(e); if (slotBusy(r)) return true; RIDE.riders.push(r); sfx.cock(); return false; });
     for (const r of RIDE.riders) {
       if (r.dead) { r.deadTime += dt; continue; }
-      const spd = r.near ? 120 : 60;
-      if (r.phase === 'in') {
-        r.x += Math.sign(r.tx - r.x) * spd * dt;
-        if (Math.abs(r.tx - r.x) < spd * dt) { r.x = r.tx; if (r.wait) { r.phase = 'pause'; r.pt = 0.35; } else { r.phase = 'show'; r.age = 0; } }
-      } else if (r.phase === 'pause') { r.pt -= dt; if (r.pt <= 0) { r.phase = 'show'; r.age = 0; sfx.cock(); } }
-      else if (r.phase === 'show') {
-        r.age += dt;
-        if (r.age >= r.window) {
-          if (r.type === 'outlaw') { riderFires(r); if (state !== 'play') return; }
-          else r.phase = 'out';
-        }
-      } else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
+      const spd = r.near ? 140 : 70;
+      if (r.phase === 'in') { r.x += Math.sign(r.tx - r.x) * spd * dt; if (Math.abs(r.tx - r.x) < spd * dt) { r.x = r.tx; r.phase = 'show'; r.age = 0; } }
+      else if (r.phase === 'show') { r.age += dt; if (r.age >= r.window) { riderFires(r); if (state !== 'play') return; } }
+      else if (r.phase === 'out') { r.x += r.side * 90 * dt; if (r.x < -90 || r.x > LW + 20) r.gone = true; }
     }
     RIDE.riders = RIDE.riders.filter(r => !r.gone && !(r.dead && r.deadTime > 1.6));
     for (const o of RIDE.obs) if (!o.checked && o.z <= 1.35) {
       o.checked = true;
-      if (o.lanes.includes(RIDE.lane)) { o.z = 0; crash(o); if (state !== 'play') return; }
+      if (o.lanes.includes(RIDE.lane)) { o.z = 0; crash(); if (state !== 'play') return; }
     }
   },
   done() {
-    return RIDE.ei >= TRAIL.length && !RIDE.pending.length && !RIDE.riders.length && RIDE.obs.every(o => o.checked) && !RIDE.birds.some(b => b.dead);
+    return time >= RACE_END && RIDE.ei >= RACE.length && !RIDE.pending.length && !RIDE.riders.length && RIDE.obs.every(o => o.checked) && !RIDE.birds.some(b => b.dead);
   },
   shoot(x, y) {
     for (const b of RIDE.birds) if (!b.dead && inBox(x, y, { x: b.x - 6, y: b.y - 4, w: 13, h: 8 })) {
       b.dead = true; b.vy = -30; burst(b.x, b.y, 8, ['#2a2228', '#4a4048', '#f4efe0'], 40); sfx.hit();
       addScore(200, 'obj'); S.n.obj++; targets++; hits++; popText(b.x, b.y - 6, 'BIRD +200'); return true;
     }
-    const order = [...RIDE.riders].sort((a, b) => b.near - a.near);
-    for (const r of order) {
+    for (const r of [...RIDE.riders].sort((a, b) => b.near - a.near)) {
       if (r.dead) continue;
-      const G = riderGeom(r);
-      if (!inBox(x, y, riderBox(r, G))) continue;
-      r.dead = true; r.deadTime = 0; sfx.hit(); knockRider(r);
-      if (r.type === 'outlaw' && revealed(r)) {
-        hits++; S.n.outlaw++;
-        const bonus = r.phase === 'show' ? Math.round(100 * Math.max(0, 1 - r.age / r.window)) : 100;
-        addScore(100 + bonus, 'outlaw'); popText(G.sx + 10 * G.sc, G.sy, '+' + (100 + bonus));
-      } else hurt('bystander');
+      const G = riderGeom(r); if (!inBox(x, y, riderBox(r, G))) continue;
+      r.dead = true; r.deadTime = 0; sfx.hit(); knockRider(r); hits++; S.n.outlaw++;
+      const bonus = r.phase === 'show' ? Math.round(100 * Math.max(0, 1 - r.age / r.window)) : 100;
+      addScore(100 + bonus, 'outlaw'); popText(G.sx + 10 * G.sc, G.sy, '+' + (100 + bonus));
       return true;
     }
     for (const t of RIDE.tumbles) { const T = tumbleGeom(t); if (inBox(x, y, { x: T.x - T.r - 2, y: T.y - T.r - 2, w: T.r * 2 + 4, h: T.r * 2 + 4 })) {
       burst(T.x, T.y, 12, ['#8a6a3a', '#a8864a', '#5a4028'], 60); sfx.thud(); t.z = 0;
       addScore(150, 'obj'); S.n.obj++; targets++; hits++; popText(T.x, T.y - 8, 'TUMBLEWEED +150'); return true;
     } }
-    for (const p of RIDE.posts) if (p.bottles && p.z < 9) for (let i = 0; i < 3; i++) {
+    for (const p of RIDE.posts) if (p.bottles && p.z < 10) for (let i = 0; i < 3; i++) {
       const b = p.bottles[i], B = bottleBox(p, i); if (!b.alive || !inBox(x, y, { x: B.x - 2, y: B.y - 2, w: B.w + 4, h: B.h + 4 })) continue;
       b.alive = false; burst(B.x + B.w / 2, B.y + B.h / 2, 10, ['#b08a3a', '#e8f4f4', b.c], 60); sfx.glass();
       addScore(300, 'bottle'); S.n.bottle++; targets++; hits++; popText(B.x, B.y - 6, '+300'); return true;
@@ -666,40 +668,83 @@ RUNS.trail = {
     return false;
   },
   draw() {
+    buildShift();
+    // sky, sun, clouds
     ['#5f9ad6', '#82b4e2', '#abcfee', '#d8e4e8', '#eedcb0'].forEach((c, i) => R(0, i * 14, LW, 14, c));
     disc(262, 18, 9, '#fff6c8'); disc(262, 18, 7, '#fffbe8');
-    for (let i = 0; i < 3; i++) { const cx = ((i * 130 + 40 - clock * 3) % 400 + 400) % 400 - 40; R(cx, 14 + i * 9, 30, 4, '#f4f8fc'); R(cx + 6, 11 + i * 9, 16, 3, '#f4f8fc'); }
-    const p1 = Math.round(-RIDE.cam * 5), p2 = Math.round(-RIDE.cam * 10);
-    for (let x = -20; x < LW + 20; x += 2) { const h = 10 + Math.round(6 * Math.sin(x * 0.045) + 4 * Math.sin(x * 0.13)); R(x + p1, HZ - h, 2, h, '#9a7a9a'); }
-    R(18 + p2, HZ - 22, 50, 22, '#a4513b'); R(26 + p2, HZ - 26, 32, 4, '#a4513b'); R(26 + p2, HZ - 26, 32, 1, '#c06a4a');
-    R(236 + p2, HZ - 18, 64, 18, '#b05a40'); R(248 + p2, HZ - 24, 30, 6, '#b05a40'); R(248 + p2, HZ - 24, 30, 1, '#c87a5a');
-    for (let y = HZ; y < LH; y++) {
-      const z = GND / Math.max(0.5, y - HZ + 0.5), band = Math.floor((z + RIDE.dist) * 0.8) % 2;
-      R(0, y, LW, 1, y < HZ + 4 ? '#c8a070' : band ? '#c4914f' : '#bc8a4a');
-      const l = Math.round(projX(-1.6, z)), r = Math.round(projX(1.6, z));
-      R(l, y, r - l, 1, band ? '#a87a48' : '#a27444'); R(l - 1, y, 1, 1, '#8a6238'); R(r, y, 1, 1, '#8a6238');
-      if (y > HZ + 6 && Math.floor((z + RIDE.dist) * 2) % 3) for (const wx of [-1.3, -0.7, -0.3, 0.3, 0.7, 1.3]) R(Math.round(projX(wx, z)), y, 1, 1, '#946a3e');
+    for (let i = 0; i < 3; i++) { const cx = (((i * 130 + 40 - clock * 6 + RIDE.sky * 0.3) % 400) + 400) % 400 - 40; R(cx, 14 + i * 9, 30, 4, '#f4f8fc'); R(cx + 6, 11 + i * 9, 16, 3, '#f4f8fc'); }
+    // mountains + mesas swing past as you drift through the bends
+    const p1 = -RIDE.cam * 5 + RIDE.sky * 0.5, p2 = -RIDE.cam * 10 + RIDE.sky;
+    for (let x = 0; x < LW; x += 2) { const wx = x - p1, h = 10 + Math.round(6 * Math.sin(wx * 0.045) + 4 * Math.sin(wx * 0.13)); R(x, HZ - h, 2, h, '#9a7a9a'); }
+    for (const [mx, mw, mh] of [[18, 50, 22], [236, 64, 18], [130, 40, 14]]) {
+      const x = ((((mx + p2) % 420) + 420) % 420) - 60;
+      R(x, HZ - mh, mw, mh, '#a4513b'); R(x + 8, HZ - mh - 4, mw - 16, 4, '#a4513b'); R(x + 8, HZ - mh - 4, mw - 16, 1, '#c06a4a');
     }
-    const poles = RIDE.posts.filter(p => p.pole).sort((a, b) => b.z - a.z);
+    // ground + trail; bridges swap the desert for a river and the dirt for planks
+    for (let y = HZ; y < LH; y++) {
+      const z = GND / Math.max(0.5, y - HZ + 0.5), band = Math.floor((z + RIDE.dist) * 0.8) % 2, br = onBridge(z);
+      const l = Math.round(projX(-1.6, z)), r = Math.round(projX(1.6, z));
+      if (br) {
+        R(0, y, LW, 1, Math.floor((z + RIDE.dist) * 1.5) % 2 ? '#4a7ab0' : '#5888c0');
+        for (let i = 0; i < 4; i++) { const gx = ((i * 83 + y * 17 + Math.floor(clock * 40)) % 340) - 10; if ((y + i) % 5 === 0) R(gx, y, 6, 1, '#a8d0f0'); }
+        R(l - 2, y, r - l + 4, 1, '#4a2a14');
+        R(l, y, r - l, 1, Math.floor((z + RIDE.dist) * 3) % 2 ? '#8a6038' : '#7a5230');
+      } else {
+        R(0, y, LW, 1, y < HZ + 4 ? '#c8a070' : band ? '#c4914f' : '#bc8a4a');
+        R(l, y, r - l, 1, band ? '#a87a48' : '#a27444'); R(l - 1, y, 1, 1, '#8a6238'); R(r, y, 1, 1, '#8a6238');
+        if (y > HZ + 6 && Math.floor((z + RIDE.dist) * 2) % 3) for (const wx of [-1.3, -0.7, -0.3, 0.3, 0.7, 1.3]) R(Math.round(projX(wx, z)), y, 1, 1, '#946a3e');
+      }
+    }
+    // bridge railings: posts every world unit, rails between them
+    for (const b of RIDE.bridges) for (const side of [-1.75, 1.75]) {
+      let prev = null;
+      for (let wz = Math.ceil(b.z + RIDE.dist); wz <= b.z + b.len + RIDE.dist; wz++) {
+        const z = wz - RIDE.dist; if (z < 0.9 || z > FAR) continue;
+        const s = FOC / z, x = Math.round(projX(side, z)), by = Math.round(projY(z)), top = by - Math.round(0.4 * s);
+        R(x - Math.max(1, Math.round(0.03 * s)), top, Math.max(1, Math.round(0.06 * s)), by - top, '#5a3418');
+        if (prev) { line(prev.x, prev.top, x, top, '#7a4a24'); line(prev.x, prev.top + (prev.by - prev.top) / 2, x, top + (by - top) / 2, '#5a3418'); }
+        prev = { x, top, by };
+      }
+    }
+    // telegraph wire
+    const poles = RIDE.posts.filter(p => p.pole && !onBridge(p.z)).sort((a, b) => b.z - a.z);
     for (let i = 0; i + 1 < poles.length; i++) { const a = poleTop(poles[i]), b = poleTop(poles[i + 1]); line(a.x, a.y + 1, b.x, b.y + 1, '#3a2a20'); }
+    // everything on the ground, far to near
     const items = [
-      ...RIDE.deco.map(o => [o.z, () => { const s = FOC / o.z * o.s, x = projX(o.wx, o.z), by = projY(o.z); o.kind === 'cactus' ? cactusAt(x, by, s) : o.kind === 'bush' ? bushAt(x, by, s) : boulder(x, by, 0.3 * s, 0.2 * s); }]),
-      ...RIDE.posts.map(p => [p.z, () => (p.pole ? drawPole(p) : drawPost(p))]),
-      ...RIDE.obs.filter(o => o.z > 0.8).map(o => [o.z, () => (o.kind === 'log' ? logObs(o) : boulder(projX(o.lanes[0], o.z), projY(o.z), 0.62 * FOC / o.z, 0.42 * FOC / o.z))]),
+      ...RIDE.deco.filter(o => !onBridge(o.z)).map(o => [o.z, () => { const s = FOC / o.z * o.s, x = projX(o.wx, o.z), by = projY(o.z); o.kind === 'cactus' ? cactusAt(x, by, s) : o.kind === 'bush' ? bushAt(x, by, s) : boulder(x, by, 0.3 * s, 0.2 * s); }]),
+      ...RIDE.posts.filter(p => !onBridge(p.z)).map(p => [p.z, () => (p.pole ? drawPole(p) : drawPost(p))]),
+      ...RIDE.signs.map(p => [p.z, () => drawSign(p)]),
+      ...RIDE.obs.filter(o => o.z > 0.8).map(o => [o.z + (o.kind === 'hole' ? 0.9 : 0), () => (o.kind === 'log' ? logObs(o) : o.kind === 'hole' ? holeObs(o) : boulder(projX(o.lanes[0], o.z), projY(o.z), 0.62 * FOC / o.z, 0.42 * FOC / o.z))]),
       ...RIDE.tumbles.map(t => [t.z, () => drawTumbleweed(t)]),
       ...RIDE.riders.map(r => [r.near ? 1.6 : 3.4, () => drawRider(r)]),
-    ].filter(([z]) => z < 16.5).sort((a, b) => b[0] - a[0]);
+    ].filter(([z]) => z < FAR).sort((a, b) => b[0] - a[0]);
     items.forEach(([, f]) => f());
+    // speed lines
+    const vx = Math.round(projX(0, FAR)), sp = Math.min(1, RIDE.v / 13);
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + 0.2, p = (clock * 2.4 * sp + i * 0.137) % 1, r0 = 70 + p * 220, len = 10 + p * 30;
+      const x0 = vx + Math.cos(a) * r0, y0 = HZ + Math.sin(a) * r0 * 0.6;
+      if (Math.abs(x0 - 160) < 90 && y0 > HZ) continue;
+      ctx.globalAlpha = 0.35 * p * sp; line(x0, y0, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len * 0.6, '#ffffff'); ctx.globalAlpha = 1;
+    }
+    for (const d of RIDE.dust) { ctx.globalAlpha = 0.6 * (1 - d.t / 0.7); disc(Math.round(d.x), Math.round(d.y), 2 + Math.round(d.t * 8), '#d8b888'); ctx.globalAlpha = 1; }
     drawTeam();
     RIDE.birds.forEach(drawBird);
   },
   ui() {
     if (!['intro', 'play'].includes(state)) return;
+    // progress to the cabin + speedometer
+    const bx = W / 2 - 180, bw = 360, k = Math.min(1, time / RACE_END);
+    rect(bx - 3, 14, bw + 6, 12, INK); rect(bx, 17, bw, 6, '#7a5a34'); rect(bx, 17, Math.round(bw * k), 6, '#ffd23f');
+    rect(bx + bw + 6, 8, 3, 22, '#3b2210'); rect(bx + bw + 9, 8, 14, 9, '#c0302b');
+    rect(bx + Math.round(bw * k) - 6, 10, 12, 8, '#ece4cc'); rect(bx + Math.round(bw * k) - 6, 18, 12, 3, '#7a4a24');
+    const mph = RIDE.hit88 ? 88 : Math.round(RIDE.v * MPH_PER_V + Math.sin(clock * 7) * 1.5);
+    text(mph + ' MPH', W / 2, 36, 16, mph >= 88 ? '#ff9a3a' : '#ffd23f', 'center');
     ctx.globalAlpha = 0.9;
-    for (const k of ['l', 'r']) {
-      const b = STEER[k], on = RIDE.press[k] > 0 || (inBox(mouse.x, mouse.y, b) && !touchMode);
+    for (const kk of ['l', 'r']) {
+      const b = STEER[kk], on = RIDE.press[kk] > 0 || (inBox(mouse.x, mouse.y, b) && !touchMode);
       panel(b.x, b.y, b.w, b.h, on ? '#9a6236' : '#5a3418');
-      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, d = k === 'l' ? -1 : 1;
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, d = kk === 'l' ? -1 : 1;
       for (let i = 0; i < 7; i++) { const hh = (7 - i) * 6; rect(cx - d * 15 + d * i * 6 - 3, cy - hh / 2, 6, hh, on ? '#ffd23f' : '#ffffff'); }
     }
     for (let i = -1; i <= 1; i++) rect(W - 126 + i * 24 - 6, H - 126, 12, 9, i === RIDE.lane ? '#ffd23f' : 'rgba(255,255,255,.35)');
@@ -714,9 +759,13 @@ RUNS.trail = {
 };
 Object.assign(EPITAPHS, {
   arrow: [['HE SAW THE ARROW.', 'THE ARROW SAW', 'HIM FIRST.'], ['HERE LIES A MAN', 'WHO THOUGHT HE WAS', 'OUT OF RANGE.']],
-  crash: [['HE SAID', '"WHAT ROCK?"'], ['HE TOOK THE', 'SCENIC ROUTE.', 'THROUGH A BOULDER.'], ['ELIZA WAS DRIVING.', 'HE WAS SUPPOSED', 'TO BE WATCHING.']],
+  crash: [['HE SAID', '"WHAT ROCK?"'], ['HE TOOK THE', 'SCENIC ROUTE.', 'THROUGH A BOULDER.'], ['ELIZA WAS DRIVING.', 'HE WAS SUPPOSED', 'TO BE WATCHING.'], ['SPEED LIMIT', 'WAS A SUGGESTION.']],
+  tnt: [['HE SHOULD HAVE', 'SHOT THE STICK.'], ['HE WENT OUT', 'WITH A BANG.'], ['AUNT MAE WANTS', 'HER ROOF BACK.']],
 });
-Object.assign(HURT, { arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE LET FLY BEFORE YOU FIRED.', color: '#ff3b30' } });
+Object.assign(HURT, {
+  arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE LET FLY BEFORE YOU FIRED.', color: '#ff3b30' },
+  tnt: { title: 'KA-BLAM!', reason: 'THE TNT HIT THE CABIN.', color: '#ff9a3a' },
+});
 
 // =====================================================================
 //  SUNSET AT AUNT MAE'S CABIN (the wagon pulls up)
@@ -792,12 +841,8 @@ CUTS.ch2Cabin = {
   ],
 };
 
+// ---- night falls over the cabin, then fade to black
 const NIGHT_TEXT = 'ELIZA BRINGS UP A HOT CUP OF COFFEE. THE SHERIFF SETTLES IN ON THE ROOF TO KEEP WATCH.';
-function roofWatcher() {
-  const x = CABIN_X + 46, y = CABIN_B - 62;
-  ch2Fig({ ...CHARS.newSheriff, pose: 'drink' }, x, y + 30);
-  steam(x + 15, y + 6, 0.5);
-}
 SCENES.ch2Night = {
   tune: null,
   enter() { this.textT = 0; this.doneT = 0; this.cricket = 0.5; this.out = false; this.outT = 0; },
@@ -813,7 +858,7 @@ SCENES.ch2Night = {
   key() { this.tap(); },
   world() {
     g.save(); g.translate(0, -CABIN_LIFT); R(0, 0, LW, LH + CABIN_LIFT, '#8a6a40');
-    cabinArt(Math.min(1, this.t / 2)); wagonSide(WAGON_STOP, 150, false); roofWatcher();
+    cabinArt(Math.min(1, this.t / 2)); wagonSide(WAGON_STOP, 150, false);
     if (this.t > 0) R(0, 0, LW, LH + CABIN_LIFT, `rgba(8,10,34,${0.35 * Math.min(1, this.t / 2)})`);
     g.restore();
   },
@@ -863,6 +908,49 @@ function siegeFg() {
   speckled(30, 158, 9, 10, '#3a5a8a'); R(30, 158, 9, 1, '#e8e8f0'); R(39, 160, 2, 1, '#3a5a8a'); R(40, 160, 1, 5, '#3a5a8a'); R(39, 164, 2, 1, '#3a5a8a');
 }
 SETS.cabinSiege = { bg: siegeBg, fg: siegeFg, outdoor: true };
+
+// ---------------- TNT! ----------------
+// Some bandits pop up with a lit stick. Shoot them first and they go up with it.
+// Let them throw, and the stick tumbles toward the cabin, growing as it gets closer:
+// shoot it out of the air, or it lands on the roof (counts as getting shot).
+const SIEGE = { tnt: [], fx: [], parts: [] };
+const TNT_FLIGHT = 1.25; // seconds in the air, times the difficulty multiplier
+function boom(x, y, size) {
+  SIEGE.fx.push({ x, y, t: 0, size });
+  shake = Math.max(shake, 0.2 + size * 0.12); noise(0.6, 0.55, 700); tone('sine', 110, 30, 0.5, 0.35);
+  burst(x, y, 10 + Math.round(size * 4), ['#ffd23f', '#ff9a3a', '#e05020', '#5a5450'], 70 + size * 30);
+}
+function tntHand(a) { const r = figRect(a); return { x: r.x + 14, y: r.y + 4 }; }
+function tntPos(k) {
+  const p = Math.min(1, k.t / k.dur);
+  return { x: k.x0 + (k.x1 - k.x0) * p, y: k.y0 + (k.y1 - k.y0) * p - Math.sin(Math.PI * p) * 46, s: 1 + p * p * 4 };
+}
+function blowUpBandit(a) { // cartoon kaboom: hat, boots, arms and the vest go flying
+  const r = figRect(a), cx = r.x + 10, cy = r.y + 14, sp = a.spec, sleeve = sp.coat || sp.shirt;
+  boom(cx, cy, 1.4);
+  const kinds = [['hat', sp.hatC || '#5a4a3a'], ['arm', sleeve], ['arm', sleeve], ['boot', sp.boots || '#2a1a10'], ['boot', sp.boots || '#2a1a10'], ['vest', sp.vest || sp.shirt], ['leg', sp.pants || '#3a3550']];
+  for (const [kind, c] of kinds) SIEGE.parts.push({ kind, c, skin: sp.skin, x: cx, y: cy, vx: (Math.random() - 0.5) * 220, vy: -110 - Math.random() * 120, rot: 0, vr: (Math.random() - 0.5) * 18 });
+  addScore(100, 'outlaw'); popText(cx, r.y - 10, 'KA-BOOM! +100');
+}
+function drawPart(p) {
+  g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.rotate(p.rot);
+  if (p.kind === 'hat') { R(-6, 1, 12, 2, INK); R(-5, 1, 10, 1, p.c); R(-3, -3, 6, 4, p.c); R(-3, -3, 6, 1, shade(p.c, 1.3)); }
+  else if (p.kind === 'arm') { R(-1, -4, 3, 7, INK); R(0, -4, 2, 6, p.c); R(0, 2, 2, 2, p.skin); }
+  else if (p.kind === 'boot') { R(-2, -3, 3, 6, p.c); R(-2, 2, 5, 2, p.c); R(-2, 3, 5, 1, INK); }
+  else if (p.kind === 'leg') { R(-1, -4, 3, 8, p.c); R(-1, 3, 3, 1, INK); }
+  else { R(-3, -3, 7, 7, INK); R(-2, -2, 5, 5, p.c); }
+  g.restore();
+}
+function drawTnt(x, y, s, rot) {
+  const w = Math.max(2, Math.round(2 * s)), h = Math.max(5, Math.round(7 * s)), L = h / 2 + 2 * s;
+  g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(rot);
+  R(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2, INK); R(-w / 2, -h / 2, w, h, '#c0302b'); R(-w / 2, -h / 2, Math.max(1, w / 3), h, '#e0503a');
+  R(-w / 2, -h * 0.12, w, Math.max(1, Math.round(s * 0.9)), '#f4efe0');
+  R(-Math.max(1, s * 0.25), -h / 2 - 2 * s, Math.max(1, s * 0.5), 2 * s, '#3b2210');
+  g.restore();
+  const fx = x + Math.sin(rot) * L, fy = y - Math.cos(rot) * L, fl = Math.floor(clock * 20) % 2;
+  disc(Math.round(fx), Math.round(fy), Math.max(1, Math.round(s * (fl ? 1.3 : 0.9))), '#ffd23f'); R(Math.round(fx), Math.round(fy), 1, 1, '#ffffff');
+}
 LEVELS.push({
   label: 'CH. 2', name: 'THE CABIN', set: 'cabinSiege',
   spots: {
@@ -871,24 +959,74 @@ LEVELS.push({
     bushR: { x: 262, y: 52, w: 26, h: 36, a: 'bottom' }, bushF: { x: 62, y: 92, w: 26, h: 36, a: 'bottom' },
     well: { x: 137, y: 92, w: 26, h: 36, a: 'bottom' }, barrel: { x: 228, y: 90, w: 26, h: 36, a: 'bottom' },
   },
-  // [time, spot, 'o' bandit (gun) / 'n' native (bow), seconds before they fire]
-  events: [[1.0, 'bushL', 'o', 1.9], [2.4, 'rock', 'n', 1.8], [3.6, 'bushR', 'o', 1.8], [4.6, 'wagon', 'n', 1.7], [5.4, 'well', 'o', 1.7],
-           [6.6, 'bushF', 'n', 1.6], [7.4, 'wood', 'o', 1.6], [8.4, 'barrel', 'n', 1.5], [8.8, 'bushL', 'o', 1.5], [10.0, 'rock', 'o', 1.5],
-           [10.6, 'bushR', 'n', 1.4], [11.8, 'wagon', 'o', 1.4], [12.2, 'well', 'n', 1.4], [13.4, 'bushF', 'o', 1.3], [13.8, 'wood', 'n', 1.3],
-           [15.0, 'barrel', 'o', 1.3], [15.4, 'bushL', 'n', 1.25], [16.4, 'rock', 'o', 1.25], [16.8, 'bushR', 'o', 1.25], [17.8, 'wagon', 'n', 1.2],
-           [18.6, 'well', 'o', 1.2], [19.0, 'bushF', 'n', 1.2], [20.2, 'wood', 'o', 1.15], [20.6, 'barrel', 'n', 1.15], [21.8, 'bushL', 'o', 1.1],
-           [22.2, 'bushR', 'n', 1.1], [23.4, 'rock', 'o', 1.05], [23.8, 'wagon', 'o', 1.05], [24.2, 'well', 'n', 1.05]],
-  spec: (ty, n) => (ty === 'n' ? { ...NATIVE_RIDERS[n % NATIVE_RIDERS.length], pose: 'bow' } : { ...OUTLAWS[n % OUTLAWS.length], pose: 'aim' }),
+  // [time, spot, 'o' bandit with a gun / 'n' native with a bow / 't' bandit with TNT, seconds before they shoot or throw]
+  events: [[1.0, 'bushL', 'o', 1.9], [2.4, 'rock', 't', 1.3], [3.6, 'bushR', 'o', 1.8], [4.6, 'wagon', 'n', 1.7], [5.4, 'well', 't', 1.3],
+           [6.6, 'bushF', 'n', 1.6], [7.4, 'wood', 'o', 1.6], [8.4, 'barrel', 't', 1.2], [8.8, 'bushL', 'o', 1.5], [10.0, 'rock', 'o', 1.5],
+           [10.6, 'bushR', 't', 1.2], [11.8, 'wagon', 'o', 1.4], [12.2, 'well', 'n', 1.4], [13.4, 'bushF', 't', 1.1], [13.8, 'wood', 'n', 1.3],
+           [15.0, 'barrel', 'o', 1.3], [15.4, 'bushL', 't', 1.1], [16.4, 'rock', 'o', 1.25], [16.8, 'bushR', 'o', 1.25], [17.8, 'wagon', 't', 1.0],
+           [18.6, 'well', 'o', 1.2], [19.0, 'bushF', 'n', 1.2], [20.2, 'wood', 't', 1.0], [20.6, 'barrel', 'n', 1.15], [21.8, 'bushL', 'o', 1.1],
+           [22.2, 'bushR', 't', 1.0], [23.4, 'rock', 'o', 1.05], [23.8, 'wagon', 'o', 1.05], [24.2, 'well', 't', 1.0]],
+  spec: (ty, n) => (ty === 'n' ? { ...NATIVE_RIDERS[n % NATIVE_RIDERS.length], pose: 'bow' }
+    : ty === 't' ? { ...OUTLAWS[n % OUTLAWS.length], pose: 'wave', tnt: true } : { ...OUTLAWS[n % OUTLAWS.length], pose: 'aim' }),
   props: [{ k: 'bottle', x: 120, y: 44, c: '#3a7a3a', layer: 'bg' }, { k: 'bottle', x: 140, y: 44, c: '#7a4a1a', layer: 'bg' }, { k: 'bottle', x: 160, y: 44, c: '#8a2a2a', layer: 'bg' },
           { k: 'can', x: 182, y: 95, layer: 'bg' }, { k: 'jug', x: 222, y: 60, layer: 'fg' }, { k: 'lantern', x: 150, y: 92, layer: 'fg' }],
+  reset() { SIEGE.tnt = []; SIEGE.fx = []; SIEGE.parts = []; },
+  busy() { return SIEGE.tnt.length > 0; },
+  onFire(a) { // TNT bandits throw instead of shooting
+    if (!a.spec.tnt) return false;
+    const h = tntHand(a);
+    SIEGE.tnt.push({ x0: h.x, y0: h.y, x1: 40 + Math.random() * 240, y1: LH - 14, t: 0, dur: TNT_FLIGHT * diff.mult, rot: 0 });
+    noise(0.25, 0.15, 3000); return true;
+  },
+  onKill(a) { if (!a.spec.tnt) return false; blowUpBandit(a); a.gone = true; return true; },
+  update(dt) {
+    for (const p of SIEGE.parts) { p.vy += 380 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; }
+    SIEGE.parts = SIEGE.parts.filter(p => p.y < LH + 20);
+    for (const f of SIEGE.fx) f.t += dt;
+    SIEGE.fx = SIEGE.fx.filter(f => f.t < 1.3);
+    for (const k of SIEGE.tnt) {
+      k.t += dt; k.rot += dt * 7;
+      if (k.t >= k.dur) { // it landed on the roof
+        SIEGE.tnt = SIEGE.tnt.filter(o => o !== k);
+        boom(k.x1, k.y1, 3); shake = Math.max(shake, 0.7);
+        hurt('tnt', null); return;
+      }
+    }
+  },
+  shoot(x, y) {
+    for (const k of SIEGE.tnt) {
+      const P2 = tntPos(k), rad = 4 + 4 * P2.s;
+      if (!inBox(x, y, { x: P2.x - rad, y: P2.y - rad, w: rad * 2, h: rad * 2 })) continue;
+      SIEGE.tnt = SIEGE.tnt.filter(o => o !== k);
+      boom(P2.x, P2.y, 0.8 + P2.s * 0.25); hits++; targets++; S.n.obj++;
+      const pts = 200 + Math.round(50 * P2.s); addScore(pts, 'obj'); popText(P2.x, P2.y - 10, 'TNT +' + pts);
+      return true;
+    }
+    return false;
+  },
+  draw() {
+    for (const a of actives) if (!a.dead && a.spec.tnt && a.rise > 0.7) { // lit stick held overhead
+      const h = tntHand(a); R(h.x - 1, h.y - 7, 3, 7, INK); R(h.x, h.y - 6, 1, 5, '#c0302b'); R(h.x, h.y - 8, 1, 2, '#3b2210');
+      if (Math.floor(clock * 20) % 2) R(h.x - 1, h.y - 10, 2, 2, '#ffd23f');
+    }
+    for (const f of SIEGE.fx) {
+      const t = f.t;
+      if (t < 0.4) { const r = Math.round((5 + t * 55) * f.size), a = 1 - t / 0.4;
+        ctx.globalAlpha = a; disc(Math.round(f.x), Math.round(f.y), r, '#e05020'); disc(Math.round(f.x), Math.round(f.y), Math.round(r * 0.7), '#ff9a3a'); disc(Math.round(f.x), Math.round(f.y), Math.round(r * 0.4), '#fff4c8'); ctx.globalAlpha = 1; }
+      for (let i = 0; i < 5; i++) { const ang = i * 1.26 + f.size, d = (4 + t * 30) * f.size;
+        ctx.globalAlpha = Math.max(0, 0.55 * (1 - t / 1.3)); disc(Math.round(f.x + Math.cos(ang) * d), Math.round(f.y + Math.sin(ang) * d * 0.6 - t * 30), Math.round((3 + t * 8) * f.size), '#6a6460'); ctx.globalAlpha = 1; }
+    }
+    SIEGE.parts.forEach(drawPart);
+    for (const k of SIEGE.tnt) { const P2 = tntPos(k); drawTnt(P2.x, P2.y, P2.s, k.rot); }
+  },
 });
 const CABIN_LEVEL = LEVELS.length - 1;
 CUTS.ch2Dawn = {
   set: 'cabinSiege', actors: [],
   lines: [
     ['narr', 'THE NEXT MORNING, THE SHERIFF WAKES UP ON THE ROOF. THE COFFEE IS COLD.'],
-    ['narr', 'BANDITS AND NATIVES HAVE SURROUNDED THE CABIN.'],
-    ['eliza', "SHERIFF! THEY'RE HIDIN' ALL OVER THE YARD! DON'T LET 'EM REACH THE DOOR!"],
+    ['narr', 'BANDITS AND NATIVES HAVE SURROUNDED THE CABIN. AND SOME OF THEM BROUGHT DYNAMITE.'],
+    ['eliza', "SHERIFF! SHOOT THOSE STICKS BEFORE THEY HIT AUNT MAE'S ROOF!"],
   ],
 };
 
@@ -930,7 +1068,7 @@ SCENES.ch2End = {
     dim(0.6); panel(W / 2 - 330, 70, 660, 400);
     text('END OF CHAPTER 2', W / 2, 98, 32, '#ffd23f', 'center');
     const acc = shots ? Math.round(hits / shots * 100) : 0;
-    [['OUTLAWS DROPPED', S.n.outlaw], ['HATS SHOT', S.n.hat], ['BOTTLES', S.n.bottle], ['BIRDS & OTHER TARGETS', S.n.obj], ['ACCURACY', acc + '%']]
+    [['OUTLAWS DROPPED', S.n.outlaw], ['HATS SHOT', S.n.hat], ['BOTTLES', S.n.bottle], ['BIRDS, TNT & OTHER TARGETS', S.n.obj], ['ACCURACY', acc + '%']]
       .forEach(([k, v], i) => { text(k, W / 2 - 280, 170 + i * 36, 16, '#ffffff'); text(String(v), W / 2 + 280, 170 + i * 36, 16, '#f3d18b', 'right'); });
     text('SCORE ' + score, W / 2, 364, 24, '#ffffff', 'center');
     text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 404, 16, '#ffd23f', 'center');

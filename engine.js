@@ -215,6 +215,7 @@ function startLevel(i) {
   resetLevel();
 }
 function resetLevel() { // dying sends you back to the START of the level (bonus targets reset too)
+  if (LEVELS[levelIdx].reset) LEVELS[levelIdx].reset();
   inDuel = false; wounded = false; time = 0; nextEvent = 0; actives = []; ammo = 6; cylAng = 0; score = levelStartScore; S = cloneS(S0); effects = [];
   props = makeProps(LEVELS[levelIdx]); hatsShot = 0; targets = 0; flyT = 5 + Math.random() * 4;
   state = 'intro'; timer = 1.8;
@@ -345,7 +346,7 @@ function wound(a) { // Yellow Belly: first bullet just grazes you
   if (inDuel) { state = 'duelWait'; duelT = 0; drawAt = 0.7 + Math.random() * 0.8; }
 }
 function hurt(kind, a) {
-  if (diff.hits > 1 && !wounded && ['shot', 'duel', 'arrow', 'crash'].includes(kind)) return wound(a);
+  if (diff.hits > 1 && !wounded && ['shot', 'duel', 'arrow', 'crash', 'tnt'].includes(kind)) return wound(a);
   wounded = false; lives--; lastHurt = kind; flash = 1; shake = 0.4; actives = [];
   epitaph = kind === 'bystander' ? pick(WISDOM) : pick(EPITAPHS[kind]);
   kind === 'bystander' ? sfx.oops() : sfx.hurt();
@@ -367,6 +368,7 @@ function shoot(sx, sy) {
   // 1) hats in the air
   for (let i = effects.length - 1; i >= 0; i--) { const e = effects[i]; if (e.hat && inBox(x, y, hatBox(e))) return shootHat(e, x); }
   if (run) { if (!run.shoot(x, y)) miss(x, y); return; }
+  if (!inDuel && LEVELS[levelIdx] && LEVELS[levelIdx].shoot && LEVELS[levelIdx].shoot(x, y)) return; // level-specific targets (e.g. TNT in the air)
   if (inDuel) {
     if (state === 'duelDraw' && inBox(x, y, spots.street)) {
       hits++; boss.dead = true; boss.deadTime = 0; knockOff(boss); sfx.hit();
@@ -384,7 +386,7 @@ function shoot(sx, sy) {
     if (a.dead || a.rise < 0.6 || (!a.walk && !inBox(x, y, spots[a.spot])) || !inBox(x, y, figRect(a))) continue;
     a.dead = true; a.deadTime = 0; sfx.hit();
     if (a.type === 'outlaw' && !(a.walk && a.phase !== 'show')) { // shooting a walker before they reveal counts as an innocent
-      hits++; S.n.outlaw++; knockOff(a);
+      hits++; S.n.outlaw++; { const L = LEVELS[levelIdx]; if (!(L.onKill && L.onKill(a))) knockOff(a); }
       const bonus = Math.round(100 * Math.max(0, 1 - a.age / a.window)), r = figRect(a);
       addScore(100 + bonus, 'outlaw');
       popText(r.x + r.w / 2, r.y, '+' + (100 + bonus));
@@ -477,6 +479,7 @@ function update(dt) {
   if (state === 'duelWon') { timer -= dt; if (timer <= 0 && !hatsAloft()) nextStep(); return; } // Buchanan's hat can be juggled too
   if (state !== 'play') return;
   if (run) { time += dt; run.update(dt); if (state === 'play' && run.done() && !hatsAloft()) enterClear(); return; }
+  { const L = LEVELS[levelIdx]; if (!inDuel && L.update) { L.update(dt); if (state !== 'play') return; } }
 
   time += dt;
   updateProps(dt);
@@ -501,13 +504,14 @@ function update(dt) {
     }
     a.age += dt;
     if (a.age >= a.window) {
-      if (a.type === 'outlaw') { if (a.spec.pose === 'bow') tone('sine', 900, 250, 0.18, 0.12); hurt(a.spec.pose === 'bow' ? 'arrow' : 'shot', a); if (state !== 'play') return; continue; }
+      if (a.type === 'outlaw') { const L = LEVELS[levelIdx]; if (!inDuel && L.onFire && L.onFire(a)) { a.gone = true; continue; }
+        if (a.spec.pose === 'bow') tone('sine', 900, 250, 0.18, 0.12); hurt(a.spec.pose === 'bow' ? 'arrow' : 'shot', a); if (state !== 'play') return; continue; }
       if (a.walk) a.phase = 'out'; else a.gone = true; // bystander leaves safely
     }
   }
   actives = actives.filter(a => !a.gone && !(a.dead && a.deadTime > 0.9));
   // level ends once everyone's done AND nothing shootable is still in the air
-  if (nextEvent >= events.length && actives.length === 0 && !hatsAloft() && !props.list.some(p => p.alive && p.air)) enterClear();
+  if (nextEvent >= events.length && actives.length === 0 && !(LEVELS[levelIdx].busy && LEVELS[levelIdx].busy()) && !hatsAloft() && !props.list.some(p => p.alive && p.air)) enterClear();
 }
 
 // =====================================================================
@@ -1001,6 +1005,7 @@ function drawWorld() {
   }
   if (set.outdoor) drawTumble();
   if (state !== 'cut' && state !== 'end' && state !== 'title') drawProps(props.list, 'air');
+  if (!run && !inDuel && state !== 'scene' && ['intro', 'play', 'clear', 'hurt', 'over'].includes(state) && LEVELS[levelIdx] && LEVELS[levelIdx].draw) LEVELS[levelIdx].draw();
   for (const c of confetti) R(Math.round(c.x), Math.round(c.y), 2, 1, c.c);
   for (const e of effects) {
     if (e.text) continue;
