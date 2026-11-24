@@ -14,7 +14,8 @@ Object.assign(CHARS, {
   jenny: { hat: 'none', skin: '#f0c8a0', hair: '#16121c', hairLong: true, shirt: '#2f4a6a', dress: '#2f4a6a', ribbon: '#c0302b', face: 'plain', bg: '#4a1a2a' },
 });
 Object.assign(SPEAK, { jenny: { name: 'JENNY', color: '#ff8a8a' } });
-const C3 = { exitAt: null, lineAt: 0, lastLine: -1, wagonAt: 0, stats: { sparkHits: 0, bats: 0, snakes: 0, canteens: 0, jumps: 0 } };
+const c3NewStats = () => ({ sparkHits: 0, bats: 0, snakes: 0, buzzards: 0, smashed: 0, rides: 0, flies: 0, jumps: 0 });
+const C3 = { exitAt: null, lineAt: 0, lastLine: -1, wagonAt: 0, stats: c3NewStats() };
 
 // ---------------- MUSIC ----------------
 const c3Notes = s => s.replace(/\|/g, '').trim().split(/\s+/);
@@ -29,6 +30,10 @@ TUNES.c3fuse = { // ticking, tense
 TUNES.c3run = { // breathless sprint
   notes: c3Notes('A4 - C5 - E5 - C5 - | D5 - B4 - G4 - B4 - | A4 - C5 - E5 - A5 - | G#5 - E5 - B4 - G#4 - | A4 - C5 - E5 - C5 - | F5 - D5 - A4 - D5 - | E5 - C5 - A4 - C5 - | B4 - G#4 - E4 - - -'),
   bass: ['A2', 'G2', 'A2', 'E2', 'A2', 'D2', 'A2', 'E2'], bar: 8, eighth: 60 / 168 / 2, vol: 0.05, style: 'gallop',
+};
+TUNES.c3ride = { // the tortoise ride: a bright, breakneck major-key hoedown
+  notes: c3Notes('C5 E5 G5 E5 C5 E5 G5 C6 | B5 G5 D5 G5 B5 G5 D5 B4 | C5 E5 G5 E5 A5 G5 E5 C5 | D5 E5 F5 G5 A5 B5 C6 - | A5 C6 A5 F5 C5 F5 A5 F5 | G5 B5 G5 D5 B4 D5 G5 D5 | E5 G5 C6 G5 F5 A5 D6 A5 | G5 - C6 - G5 E5 C5 -'),
+  bass: ['C3', 'G2', 'C3', 'G2', 'F2', 'G2', 'C3', 'G2'], bar: 8, eighth: 60 / 210 / 2, vol: 0.06, style: 'gallop',
 };
 
 // =====================================================================
@@ -200,7 +205,7 @@ SCENES.ch3Title = {
   tap(x, y) {
     if (this.t < 0.6) return;
     if (inBox(x, y, TITLE_BTN)) { toTitle(); return; }
-    for (const k in BTN) if (inBox(x, y, BTN[k])) { sfx.blip(); C3.stats = { sparkHits: 0, bats: 0, snakes: 0, canteens: 0, jumps: 0 }; startGame(k, STORY3); return; }
+    for (const k in BTN) if (inBox(x, y, BTN[k])) { sfx.blip(); C3.stats = c3NewStats(); startGame(k, STORY3); return; }
   },
 };
 
@@ -289,9 +294,9 @@ CUTS.ch3Wake = {
 // =====================================================================
 const C3HZ = 58, C3FX = (wx, z) => 160 + wx * 110 / z, C3FY = z => C3HZ + 112 / z;
 const C3_FUSE = { // per badge: how fast the spark crawls, how big a target it is, spit recharge (s)
-  yellow:     { speed: 1 / 24, size: 1.5, cool: 0.7 },
-  deputy:     { speed: 1 / 18, size: 1.2, cool: 1.0 },
-  gunslinger: { speed: 1 / 13, size: 1.0, cool: 1.25 },
+  yellow:     { speed: 1 / 12,  size: 1.5, cool: 1.0 },
+  deputy:     { speed: 1 / 9,   size: 1.2, cool: 1.4 },
+  gunslinger: { speed: 1 / 8,   size: 1.1, cool: 1.6 },
 };
 const C3_HITS = 5, C3_PAUSE = 0.7; // each hit stalls the spark for a moment, then it keeps burning
 // the fuse snakes across the cave floor toward the bundle at your feet
@@ -412,7 +417,7 @@ RUNS.fuse = {
   press(x, y) { if (state === 'play') c3Spit(x / P, y / P); },
   draw() {
     c3FuseArt();
-    const at = c3FuseCord(C3F.out ? C3F.s : C3F.s);
+    const at = c3FuseCord(C3F.s);
     c3Boots();
     for (const p of C3F.splats) { const a = 1 - p.t / 1.5; R(Math.round(p.x) - 2, Math.round(p.y), 5, 1, `rgba(200,230,255,${a})`); R(Math.round(p.x) - 1, Math.round(p.y) - 1, 3, 1, `rgba(200,230,255,${a})`); }
     const near = C3F.s, lights = [{ x: 268, y: 44, r: 130 + Math.sin(clock * 9) * 3, k: 0.8 }, { x: 160, y: 176, r: 70, k: 0.45, warm: false }, { x: 160, y: 90, r: 120, k: 0.25, warm: false }];
@@ -503,7 +508,7 @@ function c3RunCfg() { return C3_RUN[diff.key] || C3_RUN.deputy; }
 function c3Jump() {
   if (C3D.air || C3D.trip > 0) return;
   C3D.air = true; C3D.vy = -218; C3D.btn.j = 0.15; C3.stats.jumps++;
-  tone('square', 260, 520, 0.12, 0.05); C3D.dust.push(...[0, 1, 2].map(i => ({ x: C3PX + 4 + i * 3, y: C3GY, vx: -30 - i * 20, vy: -10, t: 0 })));
+  tone('square', 260, 520, 0.12, 0.05); C3D.dust.push(...[0, 1, 2].map(i => ({ x: C3PX + 4 + i * 3, y: C3D.y + c3Off(), vx: -30 - i * 20, vy: -10, t: 0 })));
 }
 function c3Punch() {
   if (C3D.pcd > 0 || C3D.trip > 0) return;
@@ -518,6 +523,7 @@ function c3Spawn(t) {
   if (kind === 'tallsnake') { o.kind = 'snake'; o.tall = true; }          // rears up taller than you can jump
   if (kind === 'buzzard') { o.by = C3GY - 58; }                            // dives at your head wherever you are
   C3D.obs.push(o);
+  if (Math.random() < 0.18) c3AddFly(LW + 50 + Math.random() * 40, C3GY - 34); // a dragonfly hovering just within jumping reach
 }
 function c3ObBox(o) { if (o.kind === 'buzzard') return { x: o.x, y: o.by - 4, w: 14, h: 9 }; const h = o.kind === 'snake' ? Math.round(6 + o.rear * (o.tall ? 34 : 12)) : o.h; return { x: o.x, y: (o.base ?? C3GY) - h + (o.kind === 'tumble' ? o.y : 0), w: o.w, h }; }
 function c3PlayerBox() { return { x: C3PX + 3, y: C3D.y - 22, w: 8, h: 21 }; }
@@ -557,7 +563,7 @@ function c3Runner(x, footY, fr, air, punch, trip) {
 }
 function c3DrawOb(o) {
   const x = Math.round(o.x), b = o.base ?? C3GY;
-  if (o.fly) { g.save(); g.translate(x + o.w / 2, b - 4 + o.fy); g.rotate(o.rot || 0); g.translate(-(x + o.w / 2), -(b - 4)); }
+  if (o.fly) { g.save(); g.translate(x + o.w / 2, b - 4 + (o.fy || 0)); g.rotate(o.rot || 0); g.translate(-(x + o.w / 2), -(b - 4)); }
   if (o.kind === 'bush') { for (let j = 0; j < 8; j++) { const hw = Math.round(6 * Math.sqrt(1 - Math.pow((j - 8) / 8, 2) * 0.6)); R(x + 6 - hw, b - 8 + j, hw * 2, 1, j < 2 ? '#4e7a34' : j % 2 ? '#2e5224' : '#3a6228'); } R(x + 2, b - 7, 1, 1, '#6a9a44'); R(x + 9, b - 5, 1, 1, '#6a9a44'); }
   else if (o.kind === 'rock') { for (let j = 0; j < 9; j++) { const hw = Math.round(6.5 * Math.sqrt(1 - Math.pow((9 - j) / 9, 2) * 0.85)); R(x + 6 - hw, b - 9 + j, hw * 2, 1, j < 3 ? '#b8a48c' : '#8a7462'); R(x + 6 + Math.round(hw * 0.3), b - 9 + j, Math.max(1, Math.round(hw * 0.7)), 1, '#6a5644'); } }
   else if (o.kind === 'cactus' || o.kind === 'cactus2') {
@@ -597,48 +603,55 @@ function c3DesertArt() {
     for (let i = 0; i < 220; i++) px(Math.round(c3Hash(i * 5) * 320), Math.round(c3Hash(i * 7) * 72), 2, 1, i % 3 ? '#b8844c' : '#e8bc80');
     for (const y of [22, 30]) for (let x = 0; x < 320; x++) px(x, y + (c3Hash(x >> 2) > 0.8 ? 1 : 0), 1, 2, '#a8723e');
     px(0, 0, 320, 1, '#f0c890'); }), d, 108);
-  // shadows + dust + collectibles + obstacles + you
+  // rocks, tortoise, shadows, dragonflies, obstacles, you
   C3D.plats.forEach(c3DrawRock);
-  { const fl = c3Under(C3D.y).floor; g.globalAlpha = 0.3; R(C3PX + 1, fl, 14 - Math.round(Math.max(0, fl - C3D.y) * 0.15), 2, '#5a3418'); g.globalAlpha = 1; }
-  for (const it of C3D.items) if (!it.got) { const x = Math.round(it.x), y = Math.round(it.y + Math.sin(clock * 4 + it.x) * 1.5);
-    R(x - 3, y - 4, 7, 8, INK); R(x - 2, y - 3, 5, 6, '#4a7ab4'); R(x - 2, y - 3, 1, 6, '#7aa8d8'); R(x - 1, y - 6, 3, 2, '#8a8a96'); R(x - 4, y - 2, 1, 4, '#6a4020'); R(x + 4, y - 2, 1, 4, '#6a4020'); }
+  c3DrawTurtles();
+  { const base = C3D.y + c3Off(), fl = c3Under(base).floor; g.globalAlpha = 0.3; R(C3PX + 1, fl, 14 - Math.round(Math.max(0, fl - base) * 0.15), 2, '#5a3418'); g.globalAlpha = 1; }
+  C3D.flies.forEach(c3DrawFly);
   C3D.obs.forEach(c3DrawOb);
-  const fr = Math.floor(C3D.runT * 12) % 4, blink = C3D.inv > 0 && Math.floor(clock * 16) % 2;
-  if (!blink) c3Runner(C3PX, Math.round(C3D.y), fr, C3D.air, C3D.punch > 0, C3D.trip);
+  const fr = Math.floor(C3D.runT * 12) % 4, blink = C3D.inv > 0 && C3D.ride <= 0 && Math.floor(clock * 16) % 2;
+  if (C3D.ride > 0) c3DrawTortoise(C3PX + C3_TX, Math.round(C3D.y) + C3_SHELL, true);
+  if (!blink) c3Runner(C3PX, Math.round(C3D.y), C3D.ride > 0 && !C3D.air ? 1 : fr, C3D.air, C3D.punch > 0, C3D.trip);
   if (C3D.punch > 0.1) { R(C3PX + 21, Math.round(C3D.y) - 17, 3, 1, '#ffffff'); R(C3PX + 22, Math.round(C3D.y) - 14, 3, 1, '#ffffff'); }
   for (const p of C3D.dust) { g.globalAlpha = Math.max(0, 0.6 * (1 - p.t / 0.5)); disc(Math.round(p.x), Math.round(p.y), 1 + Math.round(p.t * 6), '#e8c890'); g.globalAlpha = 1; }
+  for (const rb of C3D.rubble) { g.save(); g.translate(Math.round(rb.x), Math.round(rb.y)); g.rotate(rb.rot); R(-rb.s / 2, -rb.s / 2, rb.s, rb.s, rb.c); R(-rb.s / 2, -rb.s / 2, rb.s, 1, '#f2b878'); g.restore(); }
   // foreground tufts whizzing by
   for (let i = 0; i < 16; i++) { const x = Math.round(((i * 41 - d * 1.4) % 360 + 360) % 360 - 20), h = 3 + (i * 7) % 4; for (let j = 0; j < h; j++) R(x + (j >> 1), 172 - j, 1, 1, j > h - 2 ? '#c8b070' : '#8a7a40'); }
 }
 RUNS.desert = {
   c3: true, label: null, name: 'THE LONG RUN', title: 'THE LONG RUN', hint: 'JUMP UP THE ROCKS! PUNCH SNAKES + BUZZARDS!', tune: 'c3run',
   hurtText: { trip: { title: 'FACEPLANT!', reason: 'JUMP THE BRUSH, PARTNER.', color: '#ffb347' }, snake: { title: 'SNAKEBIT!', reason: 'PUNCH THE RATTLERS.', color: '#ff3b30' }, buzzard: { title: 'PECKED!', reason: 'PUNCH THE BUZZARDS.', color: '#ff3b30' }, rock: { title: 'SMACK!', reason: 'JUMP UP ONTO THE ROCKS.', color: '#ff3b30' } },
-  reset() { Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], items: [], plats: [], forms: c3Forms(), dust: [], pows: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0 } }); ammo = 6; },
+  reset() { Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], plats: [], flies: [], forms: c3Forms(), turtles: [{ x: null, t: C3_RUN_T * 0.25 }], ride: 0, rubble: [], broken: new Set(), rideOff: null, dust: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0 } }); ammo = 6; },
   tick(dt) { C3D.dist += C3D.v * dt * 0.5; C3D.runT += dt * 0.6; },
   update(dt) {
     ammo = 6; const cfg = c3RunCfg(), k = Math.min(1, time / C3_RUN_T);
-    C3D.v = cfg.v0 + (cfg.v1 - cfg.v0) * k; C3D.dist += C3D.v * dt; C3D.runT += dt * (C3D.v / 100);
+    C3D.v = (cfg.v0 + (cfg.v1 - cfg.v0) * k) * (C3D.ride > 0 ? C3_TURBO : 1); C3D.dist += C3D.v * dt; C3D.runT += dt * (C3D.v / 100);
     C3D.btn.j = Math.max(0, C3D.btn.j - dt); C3D.btn.p = Math.max(0, C3D.btn.p - dt);
     C3D.punch = Math.max(0, C3D.punch - dt); C3D.pcd = Math.max(0, C3D.pcd - dt); C3D.inv = Math.max(0, C3D.inv - dt); C3D.trip = Math.max(0, C3D.trip - dt);
     for (const pl of C3D.plats) pl.x -= C3D.v * dt;
-    C3D.plats = C3D.plats.filter(pl => pl.x + pl.w > -20);
+    C3D.plats = C3D.plats.filter(pl => pl.x + pl.w > -20 && !pl.gone);
     while (C3D.forms.length && time >= C3D.forms[0].t) c3BuildForm(C3D.forms.shift().seq);
-    const prevY = C3D.y;
+    c3Tortoise(dt);
+    // movement: you (or the tortoise under you) land on ledges, fall off them, or hit them head-on
+    const off = c3Off(), prevB = C3D.y + off;
     if (C3D.air) { C3D.vy += 640 * dt; C3D.y += C3D.vy * dt; }
-    { const u = c3Under(Math.min(prevY, C3D.y));
-      if (u.wall) { c3Smack(); return; }
-      if (C3D.air && C3D.vy >= 0 && C3D.y >= u.floor) { C3D.y = u.floor; C3D.air = false; C3D.vy = 0; C3D.dust.push({ x: C3PX + 6, y: C3D.y, vx: -40, vy: -8, t: 0 }); }
-      else if (!C3D.air && u.floor > C3D.y + 1) { C3D.air = true; C3D.vy = 0; } } // ran off the edge of a rock
-    if (!C3D.air && Math.random() < dt * 8) C3D.dust.push({ x: C3PX + 2, y: C3D.y - 1, vx: -C3D.v * 0.4, vy: -6, t: 0 });
+    { const curB = C3D.y + off, hiB = Math.min(prevB, curB), u = c3Under(hiB);
+      if (u.wall) { if (C3D.ride > 0) c3SmashWalls(hiB); else { c3Smack(); return; } }
+      const u2 = c3Under(hiB);
+      if (C3D.air && C3D.vy >= 0 && curB >= u2.floor) { C3D.y = u2.floor - off; C3D.air = false; C3D.vy = 0; C3D.dust.push({ x: C3PX + 6, y: u2.floor, vx: -40, vy: -8, t: 0 }); }
+      else if (!C3D.air && u2.floor > curB + 1) { C3D.air = true; C3D.vy = 0; } } // ran off the edge of a ledge
+    if (!C3D.air && Math.random() < dt * 8) C3D.dust.push({ x: C3PX + 2, y: C3D.y + off - 1, vx: -C3D.v * 0.4, vy: -6, t: 0 });
     for (const p of C3D.dust) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; }
     C3D.dust = C3D.dust.filter(p => p.t < 0.5);
     C3D.spawnT -= dt;
-    const rocksNear = C3D.plats.some(pl => pl.x + pl.w > LW - 100) || (C3D.forms.length && C3D.forms[0].t - time < 1.6);
+    const rocksNear = C3D.plats.some(pl => pl.x + pl.w > LW - 100) || (C3D.forms.length && C3D.forms[0].t - time < 1.6) || (C3D.turtles.some(tt => !tt.mounted && (tt.x == null ? tt.t - time < 1.4 : tt.x > C3PX - 30)));
     if (rocksNear) C3D.spawnT = Math.max(C3D.spawnT, 0.2);
     if (C3D.spawnT <= 0 && time < C3_RUN_T - 2) { c3Spawn(time); C3D.spawnT = Math.max(0.95, cfg.gap * (0.85 + Math.random() * 0.7) * (cfg.v0 / C3D.v) * 1.1); } // never closer than one jump can clear
     const pb = c3PlayerBox(), fist = { x: C3PX + 10, y: C3D.y - 22, w: 22, h: 18 };
-    for (const it of C3D.items) { it.x -= C3D.v * dt; if (!it.got && c3Overlap(pb, { x: it.x - 3, y: it.y - 5, w: 7, h: 9 })) { it.got = true; C3.stats.canteens++; addScore(100, 'bottle'); S.n.bottle++; popText(it.x, it.y - 8, 'WATER! +100'); tone('square', 880, 1320, 0.1, 0.05); } }
-    C3D.items = C3D.items.filter(it => it.x > -10 && !it.got);
+    // dragonflies: jump up and grab them
+    for (const f of C3D.flies) { f.x -= C3D.v * dt; if (!f.got && c3Overlap(pb, { x: f.x - 4, y: f.y + Math.sin(clock * 5 + f.seed) * 2 - 3, w: 9, h: 6 })) {
+      f.got = true; C3.stats.flies++; S.n.obj++; targets++; addScore(250, 'obj'); popText(f.x, f.y - 8, 'DRAGONFLY +250'); [1320, 1760].forEach((fq, i) => setTimeout(() => tone('square', fq, fq * 1.2, 0.07, 0.05), i * 60)); } }
+    C3D.flies = C3D.flies.filter(f => f.x > -10 && !f.got);
     for (const o of C3D.obs) {
       o.x -= C3D.v * dt;
       if (o.fly) { o.fvy = (o.fvy ?? o.vy) + 500 * dt; o.fy = (o.fy || 0) + o.fvy * dt; o.x += (o.vx || 0) * dt; o.rot = (o.rot || 0) + dt * 12; if (o.fy > 80) o.gone = true; continue; }
@@ -648,17 +661,18 @@ RUNS.desert = {
       const ob = c3ObBox(o);
       if (C3D.punch > 0 && (o.kind === 'snake' || o.kind === 'tumble' || o.kind === 'buzzard') && c3Overlap(fist, ob)) {
         o.fly = true; o.vy = -150; o.vx = 120; sfx.hit(); targets++; hits++;
-        if (o.kind === 'buzzard') { C3.stats.buzzards = (C3.stats.buzzards || 0) + 1; S.n.obj++; addScore(200, 'obj'); popText(o.x, o.by - 10, 'WHAP! +200'); burst(o.x + 6, o.by, 10, ['#2a2228', '#4a4048', '#c04a3a'], 60); }
-        else if (o.kind === 'snake') { C3.stats.snakes++; S.n.obj++; addScore(150, 'obj'); popText(o.x, C3GY - 26, 'POW! +150'); }
+        if (o.kind === 'buzzard') { C3.stats.buzzards++; S.n.obj++; addScore(200, 'obj'); popText(o.x, o.by - 10, 'WHAP! +200'); burst(o.x + 6, o.by, 10, ['#2a2228', '#4a4048', '#c04a3a'], 60); }
+        else if (o.kind === 'snake') { C3.stats.snakes++; S.n.obj++; addScore(150, 'obj'); popText(o.x, (o.base ?? C3GY) - 26, 'POW! +150'); }
         else { addScore(50, 'obj'); popText(o.x, C3GY - 22, 'BAM! +50'); burst(o.x + 5, C3GY - 5, 10, ['#8a6a3a', '#a8864a'], 60); o.gone = true; }
         continue;
       }
+      if (C3D.ride > 0 && !o.hit && c3Overlap(c3RideBox(), ob)) { c3Bowl(o); continue; }
       if (!o.hit && C3D.inv <= 0 && c3Overlap(pb, ob)) { c3Stumble(o); if (state !== 'play') return; continue; }
       if (!o.passed && !o.hit && o.x + o.w < C3PX) { o.passed = true; addScore(25, 'obj'); }
     }
     C3D.obs = C3D.obs.filter(o => !o.gone && o.x > -30);
   },
-  done() { return time >= C3_RUN_T && !C3D.forms.length && !C3D.plats.some(pl => pl.x + pl.w > C3PX) && !C3D.obs.some(o => o.x > C3PX - 10 && !o.fly); },
+  done() { return time >= C3_RUN_T && C3D.ride <= 0 && !C3D.forms.length && !C3D.plats.some(pl => pl.x + pl.w > C3PX) && !C3D.obs.some(o => o.x > C3PX - 10 && !o.fly); },
   shoot() { return true; },
   press(x, y) {
     if (state !== 'play') return;
@@ -680,6 +694,10 @@ RUNS.desert = {
     const n = c3RunCfg().crashes, left = n - C3D.bumps, wx0 = W / 2 - (n * 26) / 2;
     text('LEGS', wx0 - 10, 58, 16, '#f3d18b', 'right');
     for (let i = 0; i < n; i++) { rect(wx0 + i * 26, 56, 20, 18, INK); rect(wx0 + i * 26 + 3, 59, 14, 12, i < left ? '#e8c890' : '#3a2a20'); }
+    if (state === 'play' && C3D.ride > 0) { // ride timer (no words, just the bar)
+      const w = 300, x = W / 2 - w / 2, kr = C3D.ride / C3_RIDE_T;
+      rect(x - 3, 86, w + 6, 12, INK); rect(x, 89, Math.round(w * kr), 6, kr > 0.25 ? '#8aba5a' : '#ff9a3a');
+    }
     ctx.globalAlpha = 0.88;
     for (const [b, label, on] of [[C3_JUMP_BTN, 'JUMP', C3D.btn.j > 0], [C3_PUNCH_BTN, 'PUNCH', C3D.btn.p > 0]]) {
       panel(b.x, b.y, b.w, b.h, on ? '#9a6236' : '#5a3418'); text(label, b.x + b.w / 2, b.y + b.h / 2 - 8, 16, on ? '#ffd23f' : '#ffffff', 'center');
@@ -687,6 +705,164 @@ RUNS.desert = {
     ctx.globalAlpha = 1;
   },
 };
+// the music swaps to the hoedown while you're riding the tortoise
+Object.defineProperty(RUNS.desert, 'tune', { get() { return C3D.ride > 0 ? 'c3ride' : 'c3run'; } });
+
+// =====================================================================
+//  ROCK STEPS: stair-stepped sandstone ledges. Each level is taller than
+//  your jump can clear twice, so you climb one level at a time. Run into
+//  the side of a ledge and it's lights out. Dropping down any height is fine.
+//  Dragonflies hover over some ledges: jump for them.
+// =====================================================================
+const C3LV = 22; // one ledge level, in pixels (a jump peaks at ~37px: one level, never two)
+const C3_FORM_FIRST = [1, 0, 1, 2, 1, 2, 3, 4, 3, 4, 3, 2, 3, 4, 1];
+function c3RandForm(n) { const out = []; let L = 0; for (let i = 0; i < n; i++) { const up = Math.random() < 0.55; L = up ? Math.min(4, L + 1) : Math.floor(Math.random() * L) + (L > 1 ? 1 : 0); if (L === 0) L = 1; out.push(L); } return out; }
+// a clump: a short, tight pile of ledges (no gaps between them)
+function c3Clump() { return pick([[1, 2, 2, 1], [1, 2, 3, 2], [1, 1, 2, 1], [1, 2, 1, 2], [1, 2, 1]]).map(l => -l); } // negative = clump (narrow ledges)
+// the tortoise shows up a quarter of the way in, right before the big staircase
+function c3Forms() { return [{ t: 14, seq: C3_FORM_FIRST }, { t: 25, seq: c3Clump() }, { t: 31, seq: c3RandForm(8) }, { t: 39.5, seq: c3Clump() }]; }
+let c3FormId = 0;
+function c3AddFly(x, y) { C3D.flies.push({ x, y, seed: Math.random() * 6, got: false, c: pick(['#3ac8c8', '#5ad86a', '#c860e0']) }); }
+function c3BuildForm(seq) {
+  const v = C3D.v / (C3D.ride > 0 ? C3_TURBO : 1), form = ++c3FormId;
+  let x = Math.max(LW + 10, ...C3D.plats.map(pl => pl.x + pl.w + Math.round(v * 1.1))); // a full stride of open ground between piles
+  seq.forEach((raw, i) => {
+    const clump = raw < 0, lvl = Math.abs(raw), w = Math.round(v * (clump ? 0.84 + Math.random() * 0.06 : 0.78 + Math.random() * 0.25));
+    const next = Math.abs(seq[i + 1] ?? 0), prev = i > 0 ? Math.abs(seq[i - 1]) : 0;
+    if (lvl > 0) {
+      const pl = { x, w, lvl, form, clump, seed: Math.random() * 1000 | 0 }; C3D.plats.push(pl);
+      const top = C3GY - lvl * C3LV;
+      if (!clump && prev > lvl && next <= lvl && w > v * 0.8 && Math.random() < 0.75) { // something nasty on ledges you drop down onto
+        const kind = pick(['bush', 'rock', 'cactus', 'snake', 'snake']);
+        C3D.obs.push({ kind, x: x + Math.round(w * 0.6), ...C3_OBS[kind], base: top, rear: 0, y: 0, vy: 0, hit: false, passed: false, gone: false, seed: Math.random() * 6, ride: pl });
+      } else if (clump ? lvl === Math.max(...seq.map(Math.abs)) : Math.random() < 0.3) c3AddFly(x + Math.round(w * 0.5), top - 34); // a dragonfly hovering over the top of the pile
+    }
+    x += w;
+  });
+}
+// what's under your feet, and is there a ledge face in your way? (baseY = feet, or the tortoise's feet when riding)
+function c3Under(baseY) {
+  const x0 = C3D.ride > 0 ? C3PX + C3_TX : C3PX + 4, x1 = C3D.ride > 0 ? C3PX + C3_TX + C3_TW : C3PX + 10;
+  let floor = C3GY, wall = false;
+  for (const pl of C3D.plats) if (!pl.gone && pl.x < x1 && pl.x + pl.w > x0) {
+    const top = C3GY - pl.lvl * C3LV;
+    if (top < baseY - 3) wall = true; else floor = Math.min(floor, top);
+  }
+  return { floor, wall };
+}
+function c3Smack() {
+  shake = 1; sfx.thud(); noise(0.4, 0.6, 600); burst(C3PX + 12, C3D.y - 12, 14, ['#c8703c', '#e8a060', '#8a3a24'], 90);
+  C3D.bumps = 0; hurt('rock', null);
+}
+function c3DrawRock(pl) {
+  const x0 = Math.round(pl.x), w = pl.w, top = C3GY - pl.lvl * C3LV, H = C3GY - top + 2;
+  if (x0 > LW || x0 + w < 0) return;
+  for (let j = 0; j < H; j++) {
+    const y = top + j, band = Math.floor((j + pl.seed % 5) / 4) % 4, lvlLine = j > 0 && j % C3LV === 0;
+    const col = j < 2 ? '#f2b878' : lvlLine ? '#7a3424' : ['#c8703c', '#b8603a', '#d07c44', '#a85434'][band];
+    R(x0, y, w, 1, col);
+    if (j >= 2 && !lvlLine) for (let k = 0; k < w / 14; k++) { const hx = x0 + Math.round(c3Hash(pl.seed + j * 31 + k * 7) * (w - 3)); if (c3Hash(pl.seed * 3 + j * 13 + k) > 0.72) R(hx, y, 2 + (k % 3), 1, band % 2 ? '#e08a50' : '#94482e'); }
+  }
+  for (let k = 0; k < Math.max(1, w / 40); k++) { let cx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 91) * (w - 12)); for (let j = 3; j < Math.min(H, 18 + k * 5); j++) { R(cx, top + j, 1, 1, '#6a2c1e'); if (c3Hash(pl.seed + j * 5 + k) > 0.7) cx += c3Hash(pl.seed + j) > 0.5 ? 1 : -1; } }
+  R(x0, top, 3, H, '#8a3e2a'); R(x0, top, 1, H, '#5a2418');
+  R(x0, top, w, 1, '#ffd8a0'); R(x0 + 3, top + 1, w - 3, 1, '#e8a060');
+  for (let k = 0; k < w / 18; k++) { const gx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 17) * (w - 12)); R(gx, top - 2, 1, 2, '#6a7a34'); R(gx + 1, top - 1, 1, 1, '#8a9a44'); }
+  if (w > 40) R(x0 + Math.round(w * 0.7), top - 1, 3, 1, '#b89070');
+  R(x0 - 1, top - 1, 1, H + 1, INK); R(x0, top - 1, w, 1, INK);
+}
+function c3DrawFly(f) { // a dragonfly: glinting wings beating fast, long slim tail
+  const x = Math.round(f.x), y = Math.round(f.y + Math.sin(clock * 5 + f.seed) * 2), up = Math.floor(clock * 24 + f.seed) % 2;
+  R(x - 5, y, 7, 1, f.c); R(x + 2, y - 1, 2, 2, f.c); R(x + 3, y - 1, 1, 1, INK);
+  g.globalAlpha = 0.75;
+  if (up) { R(x - 2, y - 4, 2, 3, '#e8f8ff'); R(x + 1, y - 4, 2, 3, '#e8f8ff'); } else { R(x - 4, y - 2, 4, 1, '#e8f8ff'); R(x + 1, y - 2, 4, 1, '#e8f8ff'); }
+  g.globalAlpha = 1;
+  if (Math.floor(clock * 3 + f.seed) % 3 === 0) R(x + 1, y - 5, 1, 1, '#ffffff'); // sparkle
+}
+
+// =====================================================================
+//  THE CRAZY TORTOISE. Jump on his shell and he takes off like a rocket
+//  for about 10 seconds: everything in your way gets bowled over. You can
+//  still jump (up onto ledges, too); a ledge you hit head-on explodes.
+// =====================================================================
+const C3_RIDE_T = 10, C3_TURBO = 1.9, C3_SHELL = 11, C3_TX = -3, C3_TW = 18; // tortoise left edge (vs. you) + shell width
+const c3Off = () => (C3D.ride > 0 ? C3_SHELL : 0);
+const c3RideBox = () => ({ x: C3PX + C3_TX, y: C3D.y - 22, w: C3_TW + 8, h: 22 + C3_SHELL });
+function c3DrawTortoise(x, footY, riding) {
+  x = Math.round(x); const b = footY, f = Math.floor(clock * (riding ? 30 : 8)) % 4, bob = riding ? (f % 2) : (Math.floor(clock * 4) % 2);
+  // legs: a blur when he's at full tilt
+  if (riding) { for (const lx of [2, 6, 11, 15]) { R(x + lx - 2, b - 4, 5, 4, 'rgba(90,120,50,0.55)'); R(x + lx - 1 + (f - 1), b - 3, 3, 3, '#5a7a30'); } }
+  else for (const [lx, ph] of [[2, 0], [6, 2], [11, 1], [15, 3]]) R(x + lx + ((f + ph) % 4 < 2 ? 0 : 1), b - 4, 3, 4, '#5a7a30');
+  const sy = b - 13 - bob;
+  // shell: a round dome with a hex pattern and a gold rim
+  for (let j = 0; j < 10; j++) { const hw = Math.round(9 * Math.sqrt(1 - Math.pow((10 - j) / 10.5, 2))); R(x + 9 - hw, sy + j, hw * 2, 1, j < 2 ? '#8aba5a' : j % 3 === 0 ? '#3a6a2a' : '#5a8a3a'); }
+  for (const [hx, hy] of [[4, 4], [8, 2], [12, 4], [6, 6], [10, 6]]) { R(x + hx, sy + hy, 2, 2, '#a8d070'); R(x + hx, sy + hy + 2, 2, 1, '#2e5224'); }
+  R(x + 1, sy + 10, C3_TW, 2, '#d8b040'); R(x + 1, sy + 11, C3_TW, 1, '#9a7a20');
+  // tail + head stretched out front, bulging crazy eyes looking two ways, tongue flapping
+  R(x - 2, sy + 9, 3, 2, '#6a8a3a');
+  const hx = x + C3_TW, hy = sy + 3 - (riding ? 1 : 0);
+  R(hx, hy + 3, 4, 3, '#7a9a44'); R(hx + 3, hy, 7, 6, '#7a9a44'); R(hx + 9, hy + 3, 2, 2, '#7a9a44'); R(hx + 3, hy + 5, 7, 1, '#5a7a30');
+  R(hx + 4, hy - 2, 3, 3, '#ffffff'); R(hx + 7, hy - 3, 3, 3, '#ffffff'); R(hx + 4 + (f % 2), hy - 1, 1, 1, INK); R(hx + 9, hy - 3 + (f > 1 ? 1 : 0), 1, 1, INK);
+  if (riding && f % 2) { R(hx + 10, hy + 4, 4, 1, '#e8607a'); R(hx + 13, hy + 5, 2, 1, '#e8607a'); }
+  R(hx + 3, hy - 1, 7, 1, '#c0302b'); R(hx + 1, hy - 2, 3, 1, '#c0302b'); R(hx - 1, hy - 1 + (f % 2), 3, 1, '#c0302b'); // red bandana, flapping
+  if (riding) for (let i = 0; i < 4; i++) { const ly = sy + 2 + i * 3, len = 8 + ((f + i) % 3) * 4; R(x - 6 - len, ly, len, 1, 'rgba(255,255,255,0.5)'); }
+  R(x + 2, sy - 1, C3_TW - 2, 1, INK); // outline
+}
+function c3DrawTurtles() {
+  for (const tt of C3D.turtles) if (tt.x != null && !tt.mounted) {
+    c3DrawTortoise(tt.x, C3GY, false);
+    if (Math.floor(clock * 3) % 2) { const ax = Math.round(tt.x) + 7; R(ax, C3GY - 34, 5, 7, '#ffd23f'); R(ax - 2, C3GY - 28, 9, 2, '#ffd23f'); R(ax, C3GY - 26, 5, 2, '#ffd23f'); R(ax + 1, C3GY - 24, 3, 1, '#ffd23f'); } // bouncing "jump here!" arrow
+  }
+  if (C3D.rideOff) { const rx = Math.round(C3D.rideOff.x); g.save(); g.translate(rx + 9, C3GY - 6); g.rotate(Math.PI * Math.min(1, C3D.rideOff.t * 2)); g.translate(-(rx + 9), -(C3GY - 6)); c3DrawTortoise(rx, C3GY, false); g.restore(); } // flipped on his back, legs wiggling
+}
+function c3Mount() {
+  C3D.ride = C3_RIDE_T; C3D.air = false; C3D.vy = 0; C3D.y = C3GY - C3_SHELL; C3D.inv = 0; C3D.bumps = 0;
+  C3.stats.rides++; addScore(300, 'obj'); popText(C3PX + 10, C3D.y - 34, '+300');
+  shake = Math.max(shake, 0.3); [392, 523, 659, 784, 1047].forEach((fq, i) => setTimeout(() => tone('square', fq, fq, 0.08, 0.06), i * 55));
+}
+function c3Bowl(o) { // bowled over by a speeding tortoise
+  o.hit = true; o.fly = true; o.vy = -170 - Math.random() * 60; o.vx = 120 + Math.random() * 60; targets++; S.n.obj++;
+  addScore(100, 'obj'); popText(o.x, (o.base ?? C3GY) - 24, 'BONK! +100'); sfx.hit(); burst(o.x + 4, (o.base ?? C3GY) - 6, 8, ['#e8c890', '#8a7a40'], 70);
+}
+function c3SmashWalls(baseY) { // only ledges you hit HEAD-ON break: their top is above the tortoise's feet
+  const x0 = C3PX + C3_TX, x1 = x0 + C3_TW;
+  for (const pl of C3D.plats) if (!pl.gone && pl.x < x1 && pl.x + pl.w > x0 && C3GY - pl.lvl * C3LV < baseY - 3) {
+    pl.gone = true; C3.stats.smashed++; targets++; S.n.obj++; C3D.broken.add(pl.form);
+    const top = C3GY - pl.lvl * C3LV, pts = 150 * pl.lvl; addScore(pts, 'obj'); popText(C3PX + 30, top - 8, 'SMASH! +' + pts);
+    shake = Math.max(shake, 0.45); noise(0.45, 0.55, 900); tone('sine', 120, 40, 0.3, 0.25);
+    for (let j = 0; j < 6 + pl.lvl * 4; j++) C3D.rubble.push({ x: pl.x + Math.random() * Math.min(pl.w, 40), y: top + Math.random() * (C3GY - top), vx: 60 + Math.random() * 160, vy: -80 - Math.random() * 160, s: 2 + Math.floor(Math.random() * 4), c: pick(['#c8703c', '#b8603a', '#d07c44', '#f2b878', '#8a3e2a']), rot: 0 });
+    for (const o of C3D.obs) if (o.ride === pl && !o.hit) c3Bowl(o);
+    for (const f of C3D.flies) if (f.x > pl.x - 4 && f.x < pl.x + pl.w + 4 && !f.got) { f.got = true; C3.stats.flies++; addScore(250, 'obj'); popText(f.x, f.y - 8, 'DRAGONFLY +250'); } // scooped up on the way through
+  }
+}
+// called every frame of the run before movement
+function c3Tortoise(dt) {
+  for (const rb of C3D.rubble) { rb.vy += 500 * dt; rb.x += (rb.vx - C3D.v) * dt; rb.y += rb.vy * dt; rb.rot += dt * 9; }
+  C3D.rubble = C3D.rubble.filter(rb => rb.y < LH + 10 && rb.x > -20);
+  for (const tt of C3D.turtles) {
+    if (tt.x == null) { if (time >= tt.t) { tt.x = LW + 10; tone('sawtooth', 300, 900, 0.3, 0.05); } continue; }
+    if (tt.mounted) continue;
+    tt.x -= 58 * dt; // he's trotting the same way you're running, so he drifts back to you at the same pace on every badge
+    const top = C3GY - 13, feet = C3D.y;
+    if (C3D.air && C3D.vy > 0 && feet >= top - 10 && feet <= top + 10 && tt.x < C3PX + 12 && tt.x + C3_TW + 4 > C3PX) { tt.mounted = true; c3Mount(); }
+  }
+  C3D.turtles = C3D.turtles.filter(tt => tt.x == null || tt.mounted || tt.x > -40);
+  if (C3D.ride > 0) {
+    C3D.ride -= dt; C3D.inv = 0.2;
+    if (Math.random() < dt * 30) C3D.dust.push({ x: C3PX - 6, y: C3D.y + C3_SHELL - 1, vx: -C3D.v * 0.5, vy: -10 - Math.random() * 20, t: 0 });
+    if (C3D.ride <= 0) { // he's tuckered out... but never quits with a ledge right in your face
+      const base = C3D.y + C3_SHELL, front = C3PX + C3_TX + C3_TW;
+      if (C3D.plats.some(pl => !pl.gone && pl.x + pl.w > C3PX && pl.x < front + 200 && C3GY - pl.lvl * C3LV < base - 3)) { C3D.ride = 0.02; return; }
+      C3D.ride = 0; C3D.y += C3_SHELL; C3D.air = true; C3D.vy = -200; // a proper hop off his back
+      for (const pl of C3D.plats) if (!pl.gone && C3D.broken.has(pl.form) && pl.x > C3PX + 16) { // what's left of a pile he smashed crumbles away
+        pl.gone = true; const top = C3GY - pl.lvl * C3LV;
+        for (let j = 0; j < 4 + pl.lvl * 2; j++) C3D.rubble.push({ x: pl.x + Math.random() * Math.min(pl.w, 40), y: top + Math.random() * (C3GY - top), vx: 20 + Math.random() * 60, vy: -40 - Math.random() * 80, s: 2 + Math.floor(Math.random() * 3), c: pick(['#c8703c', '#b8603a', '#d07c44']), rot: 0 });
+        for (const o of C3D.obs) if (o.ride === pl) o.gone = true;
+      }
+      C3D.rideOff = { x: C3PX + C3_TX, t: 0 };
+    }
+  }
+  if (C3D.rideOff) { C3D.rideOff.t += dt; C3D.rideOff.x -= C3D.v * dt * 0.3; if (C3D.rideOff.t > 2) C3D.rideOff = null; }
+}
 
 // =====================================================================
 //  END OF CHAPTER 3 (so far)
@@ -699,8 +875,8 @@ SCENES.ch3End = {
     dim(0.72); panel(150, 30, 660, 480);
     text('TO BE CONTINUED...', W / 2, 52, 32, '#ffd23f', 'center');
     const k = Math.floor(this.t / 0.45), st = C3.stats;
-    const rows = [['SPARK HITS', st.sparkHits], ['BATS SPAT ON', st.bats], ['SNAKES PUNCHED', st.snakes], ['BUZZARDS WHAPPED', st.buzzards || 0], ['JUMPS', st.jumps]];
-    rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 108 + i * 30, 16, '#ffffff'); text(String(r[1]), 760, 108 + i * 30, 16, '#f3d18b', 'right'); } });
+    const rows = [['SPARK HITS', st.sparkHits], ['BATS SPAT ON', st.bats], ['SNAKES PUNCHED', st.snakes], ['BUZZARDS WHAPPED', st.buzzards], ['DRAGONFLIES', st.flies], ['ROCKS SMASHED', st.smashed], ['TORTOISE RIDES', st.rides]];
+    rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 104 + i * 30, 16, '#ffffff'); text(String(r[1]), 760, 104 + i * 30, 16, '#f3d18b', 'right'); } });
     if (k > rows.length) { rect(200, 318, 560, 3, '#c98a4b'); text('SCORE', 200, 334, 24, '#ffffff'); text(String(score), 760, 334, 24, '#ffd23f', 'right'); }
     if (k > rows.length + 1) {
       text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 396, 16, '#ffd23f', 'center');
@@ -708,7 +884,7 @@ SCENES.ch3End = {
       if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 472, 16, '#f3d18b', 'center');
     }
   },
-  tap() { if (this.t < 0.45 * 7) this.t = 0.45 * 8; else toTitle(); },
+  tap() { if (this.t < 0.45 * 9) this.t = 0.45 * 10; else toTitle(); },
   key() { this.tap(); },
 };
 
@@ -717,8 +893,8 @@ Object.assign(EPITAPHS, {
   fuse: [['RUSTY!!'], ['HE RAN OUT', 'OF SPIT.'], ['BLOWN TO', 'KINGDOM COME.'], ['JENNY SENDS', 'HER REGARDS.']],
   trip: [['RUSTY!!'], ['TRIPPED OVER', 'A SAGEBRUSH.'], ['HE FORGOT', 'TO JUMP.']],
   snake: [['RUSTY!!'], ['THE SNAKE', 'PUNCHED FIRST.'], ['HE TRIED TO JUMP', 'A RATTLESNAKE.']],
-  rock: [['RUSTY!!'], ['HE RAN INTO', 'A MESA.'], ['THE ROCK', 'DID NOT MOVE.'], ['FACE, MEET', 'SANDSTONE.']],
   buzzard: [['RUSTY!!'], ['THE BUZZARDS', "DIDN'T WAIT."], ['LUNCH.']],
+  rock: [['RUSTY!!'], ['HE RAN INTO', 'A MESA.'], ['THE ROCK', 'DID NOT MOVE.'], ['FACE, MEET', 'SANDSTONE.']],
 });
 Object.assign(HURT, {
   fuse: RUNS.fuse.hurtText.fuse, trip: RUNS.desert.hurtText.trip, snake: RUNS.desert.hurtText.snake, buzzard: RUNS.desert.hurtText.buzzard, rock: RUNS.desert.hurtText.rock,
@@ -763,66 +939,3 @@ draw = function () {
   }
   ctx.restore();
 };
-
-
-// =====================================================================
-//  ROCK STEPS: stair-stepped sandstone ledges. Each level is taller than
-//  your jump can clear twice, so you climb one level at a time. Run into
-//  the side of a ledge and it's lights out. Dropping down any height is fine.
-// =====================================================================
-const C3LV = 22; // one ledge level, in pixels (a jump peaks at ~37px: one level, never two)
-const C3_FORM_FIRST = [1, 0, 1, 2, 1, 2, 3, 4, 3, 4, 3, 2, 3, 4, 1];
-function c3RandForm(n) { const out = []; let L = 0; for (let i = 0; i < n; i++) { const up = Math.random() < 0.55; L = up ? Math.min(4, L + 1) : Math.floor(Math.random() * L) + (L > 1 ? 1 : 0); if (L === 0) L = 1; out.push(L); } return out; }
-function c3Forms() { return [{ t: 4, seq: C3_FORM_FIRST }, { t: 22, seq: c3RandForm(8) }, { t: 34, seq: c3RandForm(7) }]; }
-function c3BuildForm(seq) {
-  let x = Math.max(LW + 10, ...C3D.plats.map(pl => pl.x + pl.w + 40));
-  const v = C3D.v;
-  seq.forEach((lvl, i) => {
-    const w = Math.round(v * (0.78 + Math.random() * 0.25)), next = seq[i + 1] ?? 0;
-    if (lvl > 0) {
-      const pl = { x, w, lvl, seed: Math.random() * 1000 | 0 }; C3D.plats.push(pl);
-      const prev = i > 0 ? seq[i - 1] : 0;
-      if (prev > lvl && next <= lvl && w > v * 0.8 && Math.random() < 0.75) { // only on ledges you drop down onto, so there's room to land first // something nasty on top of this ledge
-        const kind = pick(['bush', 'rock', 'cactus', 'snake', 'snake']);
-        C3D.obs.push({ kind, x: x + Math.round(w * 0.6), ...C3_OBS[kind], base: C3GY - lvl * C3LV, rear: 0, y: 0, vy: 0, hit: false, passed: false, gone: false, seed: Math.random() * 6, ride: pl });
-      }
-    }
-    x += w;
-  });
-}
-// what's under your feet, and is there a ledge face in your way?
-function c3Under(feetY) {
-  let floor = C3GY, wall = false;
-  for (const pl of C3D.plats) if (pl.x < C3PX + 10 && pl.x + pl.w > C3PX + 4) {
-    const top = C3GY - pl.lvl * C3LV;
-    if (top < feetY - 3) wall = true; else floor = Math.min(floor, top);
-  }
-  return { floor, wall };
-}
-function c3Smack() {
-  shake = 1; sfx.thud(); noise(0.4, 0.6, 600); burst(C3PX + 12, C3D.y - 12, 14, ['#c8703c', '#e8a060', '#8a3a24'], 90);
-  C3D.bumps = 0; hurt('rock', null);
-}
-function c3DrawRock(pl) {
-  const x0 = Math.round(pl.x), w = pl.w, top = C3GY - pl.lvl * C3LV, H = C3GY - top + 2;
-  if (x0 > LW || x0 + w < 0) return;
-  // body: sandstone strata, warm lit top, cool shade toward the bottom
-  for (let j = 0; j < H; j++) {
-    const y = top + j, band = Math.floor((j + pl.seed % 5) / 4) % 4, lvlLine = j > 0 && j % C3LV === 0;
-    const col = j < 2 ? '#f2b878' : lvlLine ? '#7a3424' : ['#c8703c', '#b8603a', '#d07c44', '#a85434'][band];
-    R(x0, y, w, 1, col);
-    if (j >= 2 && !lvlLine) { // a few blotches + pebbles so it isn't flat
-      for (let k = 0; k < w / 14; k++) { const hx = x0 + Math.round(c3Hash(pl.seed + j * 31 + k * 7) * (w - 3)); if (c3Hash(pl.seed * 3 + j * 13 + k) > 0.72) R(hx, y, 2 + (k % 3), 1, band % 2 ? '#e08a50' : '#94482e'); }
-    }
-  }
-  // cracks running down the face
-  for (let k = 0; k < Math.max(1, w / 40); k++) { let cx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 91) * (w - 12)); for (let j = 3; j < Math.min(H, 18 + k * 5); j++) { R(cx, top + j, 1, 1, '#6a2c1e'); if (c3Hash(pl.seed + j * 5 + k) > 0.7) cx += c3Hash(pl.seed + j) > 0.5 ? 1 : -1; } }
-  // the front (left) face is in shadow, the top lip catches the sunset
-  R(x0, top, 3, H, '#8a3e2a'); R(x0, top, 1, H, '#5a2418');
-  R(x0, top, w, 1, '#ffd8a0'); R(x0 + 3, top + 1, w - 3, 1, '#e8a060');
-  // scrubby grass + a pebble or two on the top
-  for (let k = 0; k < w / 18; k++) { const gx = x0 + 6 + Math.round(c3Hash(pl.seed + k * 17) * (w - 12)); R(gx, top - 2, 1, 2, '#6a7a34'); R(gx + 1, top - 1, 1, 1, '#8a9a44'); }
-  if (w > 40) { R(x0 + Math.round(w * 0.7), top - 1, 3, 1, '#b89070'); }
-  // an inky outline so it reads against the dunes
-  R(x0 - 1, top - 1, 1, H + 1, INK); R(x0, top - 1, w, 1, INK);
-}
