@@ -658,7 +658,7 @@ RUNS.desert = {
   c3: true, label: null, name: 'THE LONG RUN', title: 'THE LONG RUN', hint: 'RIDE THE TORTOISE: FLIP, GRIND, BALANCE!',
   hurtText: { trip: { title: 'FACEPLANT!', reason: 'JUMP THE BRUSH, PARTNER.', color: '#ffb347' }, snake: { title: 'SNAKEBIT!', reason: 'PUNCH THE RATTLERS.', color: '#ff3b30' }, buzzard: { title: 'PECKED!', reason: 'PUNCH THE BUZZARDS.', color: '#ff3b30' }, rock: { title: 'SMACK!', reason: 'JUMP UP ONTO THE ROCKS.', color: '#ff3b30' } },
   get tune() { return C3D.ride > 0 ? 'c3ride' : 'c3run'; }, // the music swaps to the hoedown while you're riding the tortoise
-  reset() { // a fresh attempt: stats + best trick start over from the start of this run
+  reset() {
     if (C3.runSnap) C3.stats = { ...C3.runSnap }; else C3.runSnap = { ...C3.stats };
     C3.bestTrick = null;
     Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], plats: [], flies: [], forms: c3Forms(), turtles: [{ x: null, t: 8.5 }], ride: 0, rubble: [], broken: new Set(), rideOff: null, dust: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0, l: 0, r: 0 },
@@ -682,7 +682,7 @@ RUNS.desert = {
     const off = c3Off(), prevB = C3D.y + off;
     let held = false; // grinding / riding a ramp / catching a wire: those set your height themselves
     if (C3D.grind) held = c3GrindStep(dt);
-    else if (C3D.ride > 0 && !C3D.air && prevB >= C3GY - 30) held = c3RampStep(); // (30: tall enough for the big kickers)
+    else if (C3D.ride > 0 && !C3D.air && prevB >= C3GY - 30) held = c3RampStep();
     if (!held) {
       if (C3D.air) { C3D.vy += 640 * dt; C3D.y += C3D.vy * dt; }
       if (C3D.air && c3CatchWire(prevB, C3D.y + off)) held = true;
@@ -899,7 +899,7 @@ function c3Tortoise(dt) {
   for (const tt of C3D.turtles) {
     if (tt.x == null) { if (time >= tt.t) { tt.x = C3VW; tone('sawtooth', 300, 900, 0.3, 0.05); } continue; }
     if (tt.mounted) continue;
-    tt.x -= 58 * dt; // trots back toward you at the same pace on every badge
+    tt.x -= 58 * dt;
     const top = C3GY - 13, feet = C3D.y;
     if (C3D.air && C3D.vy > 0 && feet >= top - 10 && feet <= top + 10 && tt.x < C3PX + 12 && tt.x + C3_TW + 4 > C3PX) { tt.mounted = true; c3Mount(); }
   }
@@ -965,21 +965,21 @@ function c3Flip() {
   C3D.btn.p = 0.15;
   if (C3D.grind) return;
   const f = C3D.flip, spinning = f && f.t < f.trick.dur;
-  if (spinning) { // tap FLIP again fast = double, three times = triple (need the air for it, or you bail)
+  if (spinning) {
     if (!f.trick.chain && (f.trick.flipN || 1) < 3 && f.t < 0.32) c3StartTrick((f.trick.flipN || 1) === 1 ? C3_SPECIAL.double : C3_SPECIAL.triple, true);
     C3D.flipAt = clock; return;
   }
-  if (!C3D.air) { c3Jump(); if (!C3D.air) return; C3D.flipAt = clock; return c3StartTrick(c3PickBasic()); } // FLIP on the ground = ollie + trick
+  if (!C3D.air) { c3Jump(); if (!C3D.air) return; C3D.flipAt = clock; return c3StartTrick(c3PickBasic()); }
   const sinceJump = clock - (C3D.jumpAt ?? -9); C3D.flipAt = clock;
-  if (sinceJump < 0.1) return c3StartTrick(C3_SPECIAL.leafy);   // JUMP + FLIP together
-  if (sinceJump < 0.3) return c3StartTrick(C3_SPECIAL.rodeo);   // FLIP right after the JUMP
+  if (sinceJump < 0.1) return c3StartTrick(C3_SPECIAL.leafy);
+  if (sinceJump < 0.3) return c3StartTrick(C3_SPECIAL.rodeo);
   c3StartTrick(c3PickBasic());
 }
 function c3AirJump() {
   const f = C3D.flip;
   if (f && f.t < f.trick.dur) {
-    if (!f.trick.chain && clock - (C3D.flipAt ?? -9) < 0.1 && !f.trick.flipN) return c3StartTrick(C3_SPECIAL.leafy, true); // FLIP + JUMP together
-    if (f.trick.chain && f.trick.chain < 3 && f.t < 0.4) return c3StartTrick(C3_CHAIN[f.trick.chain], true);           // jump, jump, jump...
+    if (!f.trick.chain && clock - (C3D.flipAt ?? -9) < 0.1 && !f.trick.flipN) return c3StartTrick(C3_SPECIAL.leafy, true);
+    if (f.trick.chain && f.trick.chain < 3 && f.t < 0.4) return c3StartTrick(C3_CHAIN[f.trick.chain], true);
     return;
   }
   c3StartTrick(C3_CHAIN[0]);
@@ -1009,9 +1009,9 @@ function c3Landed() { // touched down (ground, ledge or shell-on-rock) while rid
 function c3CourseEnd(v) { return Math.max(C3VW, ...C3D.plats.map(pl => pl.x + pl.w + Math.round(v * 1.0)), ...C3D.ramps.map(r => r.x + r.w + 40), ...C3D.wires.map(w => w.x + w.w + 40)); }
 function c3Skate() { return [{ t: 15.5, k: 'rail' }, { t: 17.5, k: 'big' }, { t: 33, k: 'big' }, { t: 35, k: 'rail' }]; }
 function c3SpawnRampRail(kind) {
-  if (!c3Riding()) return; // ramps and rails only show up while you're on the shell
+  if (!c3Riding()) return;
   const v = C3D.v, x = c3CourseEnd(v);
-  if (kind === 'big') { // a big kicker: huge air, dragonflies strung across the top of the arc
+  if (kind === 'big') {
     C3D.ramps.push({ x, w: 40, h: 24, big: true, used: false });
     for (let i = 0; i < 4; i++) c3AddFly(x + 40 + Math.round(v * (0.25 + i * 0.22)), C3GY - 96 - Math.round(Math.sin((i + 0.5) / 4 * Math.PI) * 24));
     return;
@@ -1068,7 +1068,7 @@ function c3DrawRamp(r) {
   const x0 = Math.round(r.x);
   for (let i = 0; i < r.w; i++) { const h = Math.round(r.h * i / r.w); R(x0 + i, C3GY - h, 1, h, i % 6 === 0 ? '#5a3418' : '#9a6236'); R(x0 + i, C3GY - h, 1, 1, '#d8a060'); }
   R(x0 + r.w - 2, C3GY - r.h, 2, r.h, '#4a2a14'); line(x0 + 6, C3GY - 1, x0 + r.w - 2, C3GY - r.h + 2, '#6e4224');
-  if (r.big) { R(x0 + r.w - 4, C3GY - r.h - 6, 2, 6, '#3b2210'); R(x0 + r.w - 2, C3GY - r.h - 6, 6, 3, Math.floor(clock * 6) % 2 ? '#c0302b' : '#e0503a'); } // a flag on the big one
+  if (r.big) { R(x0 + r.w - 4, C3GY - r.h - 6, 2, 6, '#3b2210'); R(x0 + r.w - 2, C3GY - r.h - 6, 6, 3, Math.floor(clock * 6) % 2 ? '#c0302b' : '#e0503a'); }
   if (!r.used && Math.floor(clock * 4) % 2) { R(x0 + 8, C3GY - r.h - 12, 2, 6, '#ffd23f'); R(x0 + 6, C3GY - r.h - 8, 6, 2, '#ffd23f'); R(x0 + 7, C3GY - r.h - 13, 4, 2, '#ffd23f'); } // up arrow
 }
 function c3DrawWirePoles(w) { // poles / posts go behind the rocks
@@ -1160,7 +1160,6 @@ draw = function () {
   ctx.restore();
 };
 
-
 // =====================================================================
 //  RUN COMPLETE: run total, best trick, and DO ANOTHER RUN / CONTINUE
 // =====================================================================
@@ -1187,33 +1186,29 @@ SCENES.ch3RunEnd = {
   },
   tap(x, y) {
     if (this.t < 0.35 * 8) { this.t = 0.35 * 9; return; }
-    if (inBox(x, y, C3_AGAIN_BTN)) { // back to the start of the run: score + stats as they were before it
-      sfx.blip(); score = levelStartScore; S = cloneS(S0); C3.stats = { ...(C3.runSnap0 || C3.stats) };
-      goStep(STORY3.findIndex(s2 => s2.run === 'desert')); return;
-    }
+    if (inBox(x, y, C3_AGAIN_BTN)) { sfx.blip(); score = levelStartScore; S = cloneS(S0); C3.stats = { ...(C3.runSnap0 || C3.stats) }; goStep(STORY3.findIndex(s2 => s2.run === 'desert')); return; }
     if (inBox(x, y, C3_ON_BTN)) { sfx.blip(); nextStep(); }
   },
-  key(k2) { if (this.t >= 0.35 * 8) nextStep(); else this.t = 0.35 * 9; },
+  key() { if (this.t >= 0.35 * 8) nextStep(); else this.t = 0.35 * 9; },
 };
 
 // =====================================================================
-//  SKATE MUSIC: a grungy 90s ska-punk number (skank upstrokes, walking
-//  bass, a fuzzed-out lead and a drummer who's had too much coffee)
+//  SKATE MUSIC: a grungy 90s ska-punk number
 // =====================================================================
 const C3_SKA_MEL = c3Notes('B4 - G#4 B4 - E5 - D#5 | C#5 - - B4 A4 - - - | B4 - D#5 F#5 - E5 - D#5 | C#5 - B4 - A4 - G#4 - | B4 - G#4 B4 - E5 - G#5 | F#5 - E5 - C#5 - - - | A4 - C#5 E5 - D#5 - C#5 | B4 - - - F#4 - G#4 A4');
-const C3_SKA_CH = [['E3', 0], ['A3', 0], ['B3', 0], ['A3', 0], ['E3', 0], ['C#3', 1], ['A3', 0], ['B3', 0]]; // [root, minor?]
+const C3_SKA_CH = [['E3', 0], ['A3', 0], ['B3', 0], ['A3', 0], ['E3', 0], ['C#3', 1], ['A3', 0], ['B3', 0]];
 let c3Fuzz = null;
 function c3SkaVoice(type, f, t, dur, vol, lp, fuzz) {
   const o = ac.createOscillator(), gn = ac.createGain(); o.type = type; o.frequency.value = f;
   gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + 0.008); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   let node = o;
-  if (fuzz) { if (!c3Fuzz) { c3Fuzz = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; c3Fuzz[i] = Math.tanh(x * 6); } }
+  if (fuzz) { if (!c3Fuzz) { c3Fuzz = new Float32Array(256); for (let i = 0; i < 256; i++) c3Fuzz[i] = Math.tanh((i / 128 - 1) * 6); }
     const ws = ac.createWaveShaper(); ws.curve = c3Fuzz; node.connect(ws); node = ws; }
   if (lp) { const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; node.connect(fl); node = fl; }
   node.connect(gn).connect(MUS.gain); o.start(t); o.stop(t + dur + 0.02);
 }
-function c3SkaHit(t, dur, vol, freq, q) { // noise drum hit
-  const len = Math.max(0.02, dur), b = ac.createBuffer(1, Math.ceil(ac.sampleRate * len), ac.sampleRate), d = b.getChannelData(0);
+function c3SkaHit(t, dur, vol, freq, q) {
+  const b = ac.createBuffer(1, Math.ceil(ac.sampleRate * Math.max(0.02, dur)), ac.sampleRate), d = b.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
   const src = ac.createBufferSource(), fl = ac.createBiquadFilter(), gn = ac.createGain();
   fl.type = 'bandpass'; fl.frequency.value = freq; fl.Q.value = q || 0.8; gn.gain.value = vol; src.buffer = b;
@@ -1225,16 +1220,12 @@ TUNES.c3ride = {
   notes: C3_SKA_MEL, bass: ['E2'], bar: 8, eighth: 60 / 184 / 2, vol: 0.075, style: 'ska',
   play(t, k, e) {
     const beat = k % 8, [root, minor] = C3_SKA_CH[Math.floor(k / 8) % 8], f0 = NF(root);
-    // drums: four-on-the-floor kick, snare on 2 + 4, hats on every eighth, a fill at the end of each 4 bars
     if (beat === 0 || beat === 4 || beat === 3) c3Kick(t);
     if (beat === 2 || beat === 6) { c3SkaHit(t, 0.14, 0.7, 1800, 0.7); c3SkaVoice('triangle', 190, t, 0.06, 0.25); }
     c3SkaHit(t, beat % 2 ? 0.05 : 0.03, beat % 2 ? 0.35 : 0.22, 8000, 1.2);
     if (Math.floor(k / 8) % 4 === 3 && beat >= 6) c3SkaHit(t + e / 2, 0.08, 0.5, 1400, 0.9);
-    // skank: choppy chord stabs on the off-beats
     if (beat % 2) for (const st of [0, minor ? 3 : 4, 7, 12]) c3SkaVoice('square', f0 * 2 * Math.pow(2, st / 12), t, 0.07, 0.07, 3200);
-    // walking bass: root, octave, fifth, back down
     const walk = [0, 12, 7, 12, 0, 12, 7, 10][beat]; c3SkaVoice('sawtooth', f0 / 2 * Math.pow(2, walk / 12), t, e * 0.9, 0.32, 600);
-    // the grungy lead (fuzzed sawtooth, doubled a hair sharp for width)
     const n = C3_SKA_MEL[k % C3_SKA_MEL.length];
     if (n !== '-') { let len = 1; while (C3_SKA_MEL[(k + len) % C3_SKA_MEL.length] === '-' && len < 4) len++;
       c3SkaVoice('sawtooth', NF(n), t, len * e * 0.95, 0.16, 2400, true); c3SkaVoice('sawtooth', NF(n) * 1.006, t, len * e * 0.95, 0.1, 2000, true); }
