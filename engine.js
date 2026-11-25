@@ -6,8 +6,8 @@ const W = 960, H = 540, SW = 160, CW = W + SW * 2, P = 3, LW = 320, LH = 180, IN
 
 // mult = outlaw timer multiplier, hatG = hat gravity, hits = shots you can take per heart, crashes = wagon bumps per heart
 const DIFFICULTY = {
-  yellow:     { key: 'yellow',     name: 'YELLOW BELLY', mult: 2.2,  lives: 5, draw: 1.4,  hatG: 190, hits: 2, crashes: 3 },
-  deputy:     { key: 'deputy',     name: 'DEPUTY',       mult: 1.35, lives: 5, draw: 0.9,  hatG: 260, hits: 1, crashes: 2 },
+  yellow:     { key: 'yellow',     name: 'YELLOW BELLY', mult: 2.2,  lives: 5, draw: 1.4,  hatG: 190, hits: 2, crashes: 5 },
+  deputy:     { key: 'deputy',     name: 'DEPUTY',       mult: 1.35, lives: 5, draw: 0.9,  hatG: 260, hits: 1, crashes: 3 },
   gunslinger: { key: 'gunslinger', name: 'GUNSLINGER',   mult: 0.8,  lives: 3, draw: 0.55, hatG: 260, hits: 1, crashes: 1 },
 };
 
@@ -143,6 +143,7 @@ function music() {
   const T = MUS.tune; if (!T) return;
   while (MUS.next < now + 0.3) { // schedule a little ahead so it never stutters
     const N = T.notes, k = MUS.i % N.length, t = MUS.next, n = N[k], beat = k % T.bar, e = T.eighth;
+    if (T.play) { T.play(t, k, e); MUS.next += e; MUS.i++; continue; } // custom arrangements (e.g. the ska tune)
     if (n !== '-') {
       let len = 1; while (N[(k + len) % N.length] === '-' && len < T.bar) len++;
       mNote('triangle', NF(n), t, len * e * 0.95, 0.5);
@@ -1046,6 +1047,9 @@ function panel(x, y, w, h, fill = '#5a3418') {
   for (let yy = y + 27; yy < y + h - 12; yy += 24) rect(x + 6, yy, w - 12, 3, 'rgba(0,0,0,.12)');
   for (const [nx, ny] of [[x + 12, y + 12], [x + w - 18, y + 12], [x + 12, y + h - 18], [x + w - 18, y + h - 18]]) rect(nx, ny, 6, 6, '#e2b33c');
 }
+// largest crisp font size (32/24/16/12/8) that fits the string in maxW pixels
+function fitSize(s, size, maxW) { for (const z of [32, 24, 16, 12, 8]) if (z <= size && s.length * z <= maxW) return z; return 8; }
+function fitText(s, x, y, size, col, align, maxW) { text(s, x, y, fitSize(s, size, maxW), col, align); }
 function dim(a) { rect(0, 0, W, H, `rgba(20,10,5,${a})`); }
 function wrap(s, n) { const out = []; let ln = ''; for (const w of s.split(' ')) { if ((ln + ' ' + w).trim().length > n) { out.push(ln); ln = w; } else ln = ln ? ln + ' ' + w : w; } if (ln) out.push(ln); return out; }
 function button(b, label, sub) {
@@ -1238,7 +1242,7 @@ function draw() {
     for (let k = 0; k < 4; k++) { const t = 12 * (k + 1), al = woundT * 0.1; rect(0, 0, W, t, `rgba(120,0,0,${al})`); rect(0, H - t, W, t, `rgba(120,0,0,${al})`); rect(0, 0, t, H, `rgba(120,0,0,${al})`); rect(W - t, 0, t, H, `rgba(120,0,0,${al})`); }
   }
   if (flash > 0) rect(0, 0, W, H, lastHurt === 'bystander' ? `rgba(60,90,200,${flash * 0.45})` : `rgba(200,0,0,${flash * 0.45})`);
-  for (const e of effects) if (e.text) { ctx.globalAlpha = Math.min(1, e.life * 3); text(e.text, e.x * P, (e.y - (1 - e.life) * 14) * P, 16, '#ffd23f', 'center'); ctx.globalAlpha = 1; }
+  for (const e of effects) if (e.text) { ctx.globalAlpha = Math.min(1, e.life * 3); const z = fitSize(e.text, 16, W - 24), hw = e.text.length * z / 2; text(e.text, Math.max(hw + 10, Math.min(W - hw - 10, e.x * P)), (e.y - (1 - e.life) * 14) * P, z, '#ffd23f', 'center'); ctx.globalAlpha = 1; }
   const blink = Math.floor(clock * 2.5) % 2;
   const playing = ['intro', 'play', 'clear', 'duelWait', 'duelDraw', 'duelWon'].includes(state);
   if (run && playing && run.ui) run.ui();
@@ -1259,10 +1263,18 @@ function draw() {
   if (state === 'scene' && scene.ui) scene.ui();
   if (state === 'cut') drawDialog();
   if (state === 'intro') {
-    dim(0.35); panel(W / 2 - 300, 170, 600, 160);
-    if (inDuel) { text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
-    else if (run) { const tl = wrap(run.title, 18), ts = tl.length > 1 ? 24 : 32; tl.forEach((l, i) => text(l, W / 2, 186 + i * 28 - (tl.length - 1) * 8, ts, '#ffd23f', 'center')); text(run.hint, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
-    else { const L = LEVELS[levelIdx], lab = 'label' in L; text(lab ? L.name : 'LEVEL ' + (levelIdx + 1), W / 2, 194, 32, '#ffd23f', 'center'); text(lab ? (L.hint || '') : L.name, W / 2, 246, 16, '#ffffff', 'center'); text('GET READY...', W / 2, 280, 16, '#f3d18b', 'center'); }
+    dim(0.35);
+    if (inDuel) { panel(W / 2 - 300, 170, 600, 160); text('SHOWDOWN', W / 2, 194, 32, '#ff3b30', 'center'); text('WAIT FOR THE BELL...', W / 2, 246, 16, '#ffffff', 'center'); text('THEN DRAW!', W / 2, 280, 16, '#ffd23f', 'center'); }
+    else { // title + hint, wrapped and sized so nothing ever spills out of the panel
+      const L = run ? null : LEVELS[levelIdx], lab = L && 'label' in L;
+      const title = run ? run.title : lab ? L.name : 'LEVEL ' + (levelIdx + 1), hint = run ? run.hint : lab ? (L.hint || '') : L.name;
+      const tl = wrap(title, 17), ts = tl.length > 1 ? 24 : 32, hl = hint ? wrap(hint, 32) : [];
+      const ph = 52 + tl.length * (ts + 10) + hl.length * 26 + 40, py = Math.round(250 - ph / 2);
+      panel(W / 2 - 300, py, 600, ph);
+      let y = py + 24; tl.forEach(l => { fitText(l, W / 2, y, ts, '#ffd23f', 'center', 548); y += ts + 10; });
+      y += 8; hl.forEach(l => { fitText(l, W / 2, y, 16, '#ffffff', 'center', 548); y += 26; });
+      text('GET READY...', W / 2, y + 6, 16, '#f3d18b', 'center');
+    }
   }
   if (state === 'clear' && clearInfo) {
     const ci = clearInfo;

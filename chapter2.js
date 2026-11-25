@@ -345,7 +345,7 @@ function blitFlip(img, x, y, sc, flip, shear = 0) {
 //  World x: road runs from -1.5 to 1.5. z = distance ahead (1 = under the horses' noses).
 // =====================================================================
 const HZ = 66, FOC = 104, GND = LH - HZ, FAR = 24, SPAWN = 22;
-const RACE_V = { yellow: 9, deputy: 11, gunslinger: 13 }; // ridiculous speed
+const RACE_V = { yellow: 7.5, deputy: 9, gunslinger: 13 }; // ridiculous speed
 const MPH_PER_V = 6.8;                                      // speedometer: 13 = 88 MPH
 const TRAIL_EASE = 1.35;                                    // riders give you this much extra time vs. chapter 1
 const RIDE = {};
@@ -588,7 +588,15 @@ function drawTeam() {
 }
 
 // ---------------- driving ----------------
-const STEER = { l: { x: W - 210, y: H - 108, w: 96, h: 96 }, r: { x: W - 108, y: H - 108, w: 96, h: 96 } };
+// ---- the steering slider along the bottom: drag one finger, shoot with another.
+// Your finger sets where you WANT the wagon; the bends still fling it outward, so the
+// wagon knob slides away from your finger in a turn and you have to lead it.
+const SLIDER = { x: 96, y: H - 70, w: W - 192, h: 58 }, SLIDE_GAIN = 2.2;
+const sliderTarget = () => ((Math.max(SLIDER.x, Math.min(SLIDER.x + SLIDER.w, RIDE.slide.x)) - SLIDER.x) / SLIDER.w * 2 - 1) * ROAD_EDGE;
+const sliderX = px => SLIDER.x + (px / ROAD_EDGE + 1) / 2 * SLIDER.w;
+cv.addEventListener('pointermove', e => { if (RIDE.slide && RIDE.slide.id === e.pointerId) RIDE.slide.x = toGame(e).x; });
+cv.addEventListener('pointerup', e => { if (RIDE.slide && RIDE.slide.id === e.pointerId) RIDE.slide.id = null; });
+cv.addEventListener('pointercancel', e => { if (RIDE.slide && RIDE.slide.id === e.pointerId) RIDE.slide.id = null; });
 function holdSteer(k, on, id) { // k = 'l' | 'r'
   if (on && !RIDE.hold[k]) { noise(0.05, 0.25, 5000); tone('triangle', 300, 220, 0.12, 0.08); } // crack of the reins
   RIDE.hold[k] = on; if (on) RIDE.holdId[k] = id;
@@ -622,7 +630,7 @@ function riderFires(r) {
   hurt(r.who === 'native' ? 'arrow' : 'shot', null);
 }
 RUNS.trail = {
-  label: null, name: 'HYPED UP HORSES', title: 'SUPA FAST HYPED UP HORSE TRAVEL', hint: 'HOLD THE ARROWS TO STEER! HIT THE RAMPS!', tune: 'trail',
+  label: null, name: 'COFFEE HORSE RIDE', title: 'SUPA COFFEE HORSE RIDE', hint: 'SLIDE TO STEER, TAP TO SHOOT! HIT THE RAMPS!', tune: 'trail',
   hurtText: {
     shot: { title: 'BUSHWHACKED!', reason: 'A BANDIT GOT YOU FIRST.', color: '#ff3b30' },
     arrow: { title: 'STRUCK BY AN ARROW!', reason: 'HE WAS QUICKER ON THE DRAW.', color: '#ff3b30' },
@@ -630,7 +638,7 @@ RUNS.trail = {
     block: { title: 'BLOCKADE!', reason: 'AIM FOR THE RAMP, PARTNER.', color: '#ffb347' },
   },
   reset() {
-    Object.assign(RIDE, { px: 0, vx: 0, hold: { l: false, r: false }, holdId: { l: null, r: null }, edgeT: 0, bumps: 0, lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
+    Object.assign(RIDE, { px: 0, vx: 0, slide: { id: null, x: null }, hold: { l: false, r: false }, holdId: { l: null, r: null }, edgeT: 0, bumps: 0, lane: 0, cam: 0, dist: 0, v: RACE_V[diff.key] || 11, riders: [], pending: [], obs: [], deco: [], posts: [], tumbles: [], birds: [],
       curves: [], bridges: [], signs: [], dust: [], blocks: [], flyers: [], booms: [], tracers: [], air: 0, airT: 0, camH: 1, hzE: HZ, roll: 0, ei: 0, decoT: 0, poleAcc: 0, lean: 0, sky: 0, driftT: 0, drifting: false, boost: false, hit88: false });
     for (let z = 1.3; z < SPAWN; z += 0.45) spawnDeco(z);
     for (let z = 1.5; z < SPAWN; z += 2.2) RIDE.posts.push({ pole: true, wx: 2.9, z });
@@ -657,7 +665,7 @@ RUNS.trail = {
     for (const b of RIDE.birds) { b.x += b.vx * dt; if (b.dead) { b.vy += 300 * dt; b.y += b.vy * dt; } }
     RIDE.birds = RIDE.birds.filter(b => b.x > -20 && b.x < LW + 20 && b.y < LH + 10);
     // steering + the curve flinging the wagon toward the outside of the bend
-    const kNear = curvAt(1.5), steerIn = (RIDE.hold.r ? 1 : 0) - (RIDE.hold.l ? 1 : 0);
+    const kNear = curvAt(1.5), steerIn = RIDE.slide && RIDE.slide.id != null ? Math.max(-1, Math.min(1, (sliderTarget() - RIDE.px) * SLIDE_GAIN)) : (RIDE.hold.r ? 1 : 0) - (RIDE.hold.l ? 1 : 0);
     if (state === 'play' && !(RIDE.air > 0)) RIDE.vx += (steerIn * STEER_ACC - kNear * RIDE.v * RIDE.v * FLING) * dt;
     RIDE.vx *= Math.max(0, 1 - STEER_DRAG * dt); RIDE.px += RIDE.vx * dt;
     if (Math.abs(RIDE.px) > ROAD_EDGE) { // bouncing along the edge of the road
@@ -824,17 +832,20 @@ RUNS.trail = {
     const n = diff.crashes || 1, left = n - RIDE.bumps, wx0 = W / 2 - (n * 26) / 2;
     text('WAGON', wx0 - 12, 62, 16, '#f3d18b', 'right');
     for (let i = 0; i < n; i++) { const on = i < left; rect(wx0 + i * 26, 58, 20, 20, INK); rect(wx0 + i * 26 + 3, 61, 14, 14, on ? '#c98a4b' : '#3b2210'); if (on) rect(wx0 + i * 26 + 3, 61, 14, 3, '#e8b070'); }
-    ctx.globalAlpha = 0.9;
-    for (const kk of ['l', 'r']) {
-      const b = STEER[kk], on = RIDE.hold[kk] || (inBox(mouse.x, mouse.y, b) && !touchMode);
-      panel(b.x, b.y, b.w, b.h, on ? '#9a6236' : '#5a3418');
-      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, d = kk === 'l' ? -1 : 1;
-      for (let i = 0; i < 7; i++) { const hh = (7 - i) * 6; rect(cx - d * 15 + d * i * 6 - 3, cy - hh / 2, 6, hh, on ? '#ffd23f' : '#ffffff'); }
+    { // slider: the track is the road, the wagon knob is where you really are, the white box is your finger
+      const S2 = SLIDER, held = RIDE.slide.id != null, cy = S2.y + S2.h / 2;
+      ctx.globalAlpha = held ? 0.95 : 0.8;
+      panel(S2.x, S2.y, S2.w, S2.h, '#3b2210');
+      rect(S2.x + 18, cy - 6, S2.w - 36, 12, INK); rect(S2.x + 21, cy - 3, S2.w - 42, 6, '#a87a48');
+      for (let i = 1; i < 6; i++) rect(S2.x + 18 + Math.round((S2.w - 36) * i / 6) - 1, cy - 2, 3, 4, '#6e4224');
+      if (held) { const fx = Math.max(S2.x + 18, Math.min(S2.x + S2.w - 18, RIDE.slide.x)); rect(fx - 21, cy - 21, 42, 3, '#ffffff'); rect(fx - 21, cy + 18, 42, 3, '#ffffff'); rect(fx - 21, cy - 21, 3, 42, '#ffffff'); rect(fx + 18, cy - 21, 3, 42, '#ffffff'); }
+      const kx = Math.round(Math.max(S2.x + 18, Math.min(S2.x + S2.w - 18, sliderX(RIDE.px))));
+      rect(kx - 18, cy - 15, 36, 30, INK); rect(kx - 15, cy - 12, 30, 24, held ? '#ffd23f' : '#c98a4b'); rect(kx - 15, cy - 12, 30, 6, '#ece4cc'); rect(kx - 9, cy + 6, 6, 6, INK); rect(kx + 3, cy + 6, 6, 6, INK);
+      if (!held && Math.floor(clock * 2) % 2) text('< SLIDE TO STEER >', S2.x + S2.w / 2, S2.y - 24, 16, '#f3d18b', 'center');
     }
-    rect(W - 186, H - 124, 132, 5, 'rgba(255,255,255,.35)'); rect(W - 120 + Math.round(RIDE.px / ROAD_EDGE * 60) - 6, H - 130, 12, 12, '#ffd23f');
     ctx.globalAlpha = 1;
   },
-  tap(x, y) { for (const k of ['l', 'r']) if (inBox(x, y, STEER[k])) { holdSteer(k, true, RIDE.lastPointer); return true; } return false; },
+  tap(x, y) { if (inBox(x, y, { x: SLIDER.x - 20, y: SLIDER.y - 20, w: SLIDER.w + 40, h: SLIDER.h + 40 })) { RIDE.slide.id = RIDE.lastPointer; RIDE.slide.x = x; tone('triangle', 300, 220, 0.12, 0.06); return true; } return false; },
   key(k) {
     if (k === 'arrowleft' || k === 'a') { holdSteer('l', true, 'key'); return true; }
     if (k === 'arrowright' || k === 'd') { holdSteer('r', true, 'key'); return true; }
