@@ -1116,7 +1116,7 @@ SCENES.ch2End = {
       text('BULLETS FIRED ' + shots, 200, 330, 16, '#f3d18b'); text('ACCURACY ' + acc + '%', 200, 362, 16, '#f3d18b');
       text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 420, 16, '#ffd23f', 'center');
       text('NEXT: CHAPTER 3', W / 2, 456, 16, '#ffffff', 'center');
-      if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 490, 16, '#f3d18b', 'center');
+      if (Math.floor(clock * 2.5) % 2) text('TAP TO CONTINUE', W / 2, 490, 16, '#f3d18b', 'center');
     }
   },
   tap() { if (this.t < 0.45 * 7) this.t = 0.45 * 8; else toTitle(); },

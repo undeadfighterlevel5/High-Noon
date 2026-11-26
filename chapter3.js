@@ -494,7 +494,8 @@ CUTS.ch3Canyon = {
 // =====================================================================
 //  LEVEL: THE LONG RUN — side-scrolling desert sprint. Jump + punch.
 // =====================================================================
-const C3GY = 128, C3PX = 62, C3_RUN_T = 45, C3VW = 400; // C3VW = where things appear (just off the zoomed-out right edge)
+let C3PX = 62; // where you are on screen (the getaway in ch4 slides you left/right)
+const C3GY = 128, C3_RUN_T = 45, C3VW = 400; // C3VW = where things appear (just off the zoomed-out right edge)
 const C3_RUN = { // per badge
   yellow:     { v0: 96,  v1: 140, gap: 1.2,  crashes: 3, bal: 1.7 }, // bal = how hard the wire tips you over
   deputy:     { v0: 114, v1: 170, gap: 0.98, crashes: 2, bal: 2.4 },
@@ -659,13 +660,14 @@ RUNS.desert = {
   hurtText: { trip: { title: 'FACEPLANT!', reason: 'JUMP THE BRUSH, PARTNER.', color: '#ffb347' }, snake: { title: 'SNAKEBIT!', reason: 'PUNCH THE RATTLERS.', color: '#ff3b30' }, buzzard: { title: 'PECKED!', reason: 'PUNCH THE BUZZARDS.', color: '#ff3b30' }, rock: { title: 'SMACK!', reason: 'JUMP UP ONTO THE ROCKS.', color: '#ff3b30' } },
   get tune() { return C3D.ride > 0 ? 'c3ride' : 'c3run'; }, // the music swaps to the hoedown while you're riding the tortoise
   reset() {
+    C3PX = 62;
     if (C3.runSnap) C3.stats = { ...C3.runSnap }; else C3.runSnap = { ...C3.stats };
     C3.bestTrick = null;
-    Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], plats: [], flies: [], forms: c3Forms(), turtles: [{ x: null, t: 8.5 }], ride: 0, rubble: [], broken: new Set(), rideOff: null, dust: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0, l: 0, r: 0 },
+    Object.assign(C3D, { y: C3GY, vy: 0, air: false, punch: 0, pcd: 0, inv: 0, trip: 0, bumps: 0, obs: [], plats: [], flies: [], forms: c3Forms(), turtles: [{ x: null, t: run && run.turtleT != null ? run.turtleT : 8.5 }], ride: 0, rubble: [], broken: new Set(), rideOff: null, dust: [], dist: 0, v: c3RunCfg().v0, spawnT: 1.2, runT: 0, btn: { j: 0, p: 0, l: 0, r: 0 },
     ramps: [], wires: [], sparks: [], skate: c3Skate(), zoom: 1, grind: null, flip: null, combo: null, grade: null, big: false, lastTrick: '', camY: 0 }); ammo = 6; },
   tick(dt) { C3D.dist += C3D.v * dt * 0.5; C3D.runT += dt * 0.6; },
   update(dt) {
-    ammo = 6; const cfg = c3RunCfg(), k = Math.min(1, time / C3_RUN_T);
+    ammo = 6; const cfg = c3RunCfg(), k = Math.min(1, time / (run.runT || C3_RUN_T));
     C3D.v = (cfg.v0 + (cfg.v1 - cfg.v0) * k) * (C3D.ride > 0 ? C3_TURBO : 1); C3D.dist += C3D.v * dt; C3D.runT += dt * (C3D.v / 100);
     for (const kk in C3D.btn) C3D.btn[kk] = Math.max(0, C3D.btn[kk] - dt);
     C3D.punch = Math.max(0, C3D.punch - dt); C3D.pcd = Math.max(0, C3D.pcd - dt); C3D.inv = Math.max(0, C3D.inv - dt); C3D.trip = Math.max(0, C3D.trip - dt);
@@ -700,7 +702,7 @@ RUNS.desert = {
     C3D.spawnT -= dt;
     const rocksNear = C3D.plats.some(pl => pl.x + pl.w > C3VW - 180) || C3D.ramps.some(r => r.x + r.w > C3VW - 240) || C3D.wires.some(w => w.x + w.w > C3VW - 180) || (C3D.skate.length && C3D.skate[0].t - time < 1.4 && C3D.ride > 0) || (C3D.forms.length && C3D.forms[0].t - time < 1.6) || (C3D.turtles.some(tt => !tt.mounted && (tt.x == null ? tt.t - time < 1.4 : tt.x > C3PX - 30)));
     if (rocksNear) C3D.spawnT = Math.max(C3D.spawnT, 0.2);
-    if (C3D.spawnT <= 0 && time < C3_RUN_T - 2) { c3Spawn(time); C3D.spawnT = Math.max(0.95, cfg.gap * (0.85 + Math.random() * 0.7) * (cfg.v0 / C3D.v) * 1.1); }
+    if (C3D.spawnT <= 0 && time < (run.runT || C3_RUN_T) - 2) { c3Spawn(time); C3D.spawnT = Math.max(0.95, cfg.gap * (0.85 + Math.random() * 0.7) * (cfg.v0 / C3D.v) * 1.1); }
     const pb = c3PlayerBox(), fist = { x: C3PX + 10, y: C3D.y - 22, w: 22, h: 18 };
     for (const f of C3D.flies) { f.x -= C3D.v * dt; if (!f.got && c3Overlap(pb, { x: f.x - 4, y: f.y + Math.sin(clock * 5 + f.seed) * 2 - 3, w: 9, h: 6 })) {
       f.got = true; C3.stats.flies++; S.n.obj++; targets++; addScore(250, 'obj'); c3Pop(f.x, f.y - 8, 'DRAGONFLY +250'); [1320, 1760].forEach((fq, i) => setTimeout(() => tone('square', fq, fq * 1.2, 0.07, 0.05), i * 60)); } }
@@ -749,13 +751,13 @@ RUNS.desert = {
   draw() { c3DesertArt(); },
   ui() {
     if (!['intro', 'play'].includes(state)) return;
-    const bx = W / 2 - 180, bw = 360, k = Math.min(1, time / C3_RUN_T);
+    const bx = W / 2 - 180, bw = 360, k = Math.min(1, time / (run.runT || C3_RUN_T));
     rect(bx - 3, 14, bw + 6, 12, INK); rect(bx, 17, bw, 6, '#7a5a34'); rect(bx, 17, Math.round(bw * k), 6, '#ffd23f');
-    rect(bx + Math.round(bw * k) - 5, 9, 10, 10, '#c0302b'); text("JENNY'S TRAIL", W / 2, 34, 16, '#ffd23f', 'center');
+    rect(bx + Math.round(bw * k) - 5, 9, 10, 10, '#c0302b'); text(run.trail || "JENNY'S TRAIL", W / 2, 34, 16, '#ffd23f', 'center');
     const n = c3RunCfg().crashes, left = n - C3D.bumps, wx0 = W / 2 - (n * 26) / 2;
     text('LEGS', wx0 - 10, 58, 16, '#f3d18b', 'right');
     for (let i = 0; i < n; i++) { rect(wx0 + i * 26, 56, 20, 18, INK); rect(wx0 + i * 26 + 3, 59, 14, 12, i < left ? '#e8c890' : '#3a2a20'); }
-    if (state === 'play' && C3D.ride > 0) { const w = 300, x = W / 2 - w / 2, kr = C3D.ride / C3_RIDE_T; rect(x - 3, 86, w + 6, 12, INK); rect(x, 89, Math.round(w * kr), 6, kr > 0.25 ? '#8aba5a' : '#ff9a3a'); }
+    if (state === 'play' && C3D.ride > 0) { const w = 300, x = W / 2 - w / 2, kr = C3D.ride / (run.rideT || C3_RIDE_T); rect(x - 3, 86, w + 6, 12, INK); rect(x, 89, Math.round(w * kr), 6, kr > 0.25 ? '#8aba5a' : '#ff9a3a'); }
     if (C3D.grind) { // balance meter: keep the ball on the middle line
       const gw = 300, gx = W / 2 - gw / 2, gy = H - 150, b = Math.max(-1, Math.min(1, C3D.grind.bal)), warn = Math.abs(b) > 0.5;
       rect(gx - 4, gy - 4, gw + 8, 22, INK); rect(gx, gy, gw, 14, '#5a3418');
@@ -781,7 +783,7 @@ const C3LV = 22;
 const C3_FORM_FIRST = [1, 0, 1, 2, 1, 2, 3, 4, 3, 4, 3, 2, 3, 4, 5, 4, 5, 3, 1]; // tops out at level 5
 function c3RandForm(n) { const out = []; let L = 0; for (let i = 0; i < n; i++) { const up = Math.random() < 0.55; L = up ? Math.min(5, L + 1) : Math.floor(Math.random() * L) + (L > 1 ? 1 : 0); if (L === 0) L = 1; out.push(L); } return out; }
 function c3Clump() { return pick([[1, 2, 2, 1], [1, 2, 3, 2], [1, 1, 2, 1], [1, 2, 1, 2], [1, 2, 1]]).map(l => -l); } // negative = clump ledge
-function c3Forms() { return [{ t: 6, seq: c3Clump() }, { t: 19, seq: C3_FORM_FIRST, wire: true }, { t: 37, seq: c3RandForm(6) }, { t: 41.5, seq: c3Clump() }]; }
+function c3Forms() { if (run && run.forms) return run.forms(); return [{ t: 6, seq: c3Clump() }, { t: 19, seq: C3_FORM_FIRST, wire: true }, { t: 37, seq: c3RandForm(6) }, { t: 41.5, seq: c3Clump() }]; }
 let c3FormId = 0;
 function c3AddFly(x, y) { C3D.flies.push({ x, y, seed: Math.random() * 6, got: false, c: pick(['#3ac8c8', '#5ad86a', '#c860e0']) }); }
 function c3BuildForm(seq, wire) {
@@ -874,7 +876,7 @@ function c3DrawTurtles() {
   if (C3D.rideOff) { const rx = Math.round(C3D.rideOff.x); G3.save(); G3.translate(rx + 9, C3GY - 6); G3.rotate(Math.PI * Math.min(1, C3D.rideOff.t * 2)); G3.translate(-(rx + 9), -(C3GY - 6)); c3DrawTortoise(rx, C3GY, false); G3.restore(); }
 }
 function c3Mount() {
-  C3D.ride = C3_RIDE_T; C3D.air = false; C3D.vy = 0; C3D.y = C3GY - C3_SHELL; C3D.inv = 0; C3D.bumps = 0;
+  C3D.ride = run.rideT || C3_RIDE_T; C3D.air = false; C3D.vy = 0; C3D.y = C3GY - C3_SHELL; C3D.inv = 0; C3D.bumps = 0;
   C3.stats.rides++; addScore(300, 'obj'); c3Pop(C3PX + 10, C3D.y - 34, '+300');
   shake = Math.max(shake, 0.3); [392, 523, 659, 784, 1047].forEach((fq, i) => setTimeout(() => tone('square', fq, fq, 0.08, 0.06), i * 55));
 }
@@ -1007,7 +1009,7 @@ function c3Landed() { // touched down (ground, ledge or shell-on-rock) while rid
 }
 // ---- course pieces
 function c3CourseEnd(v) { return Math.max(C3VW, ...C3D.plats.map(pl => pl.x + pl.w + Math.round(v * 1.0)), ...C3D.ramps.map(r => r.x + r.w + 40), ...C3D.wires.map(w => w.x + w.w + 40)); }
-function c3Skate() { return [{ t: 15.5, k: 'rail' }, { t: 17.5, k: 'big' }, { t: 33, k: 'big' }, { t: 35, k: 'rail' }]; }
+function c3Skate() { if (run && run.skate) return run.skate(); return [{ t: 15.5, k: 'rail' }, { t: 17.5, k: 'big' }, { t: 33, k: 'big' }, { t: 35, k: 'rail' }]; }
 function c3SpawnRampRail(kind) {
   if (!c3Riding()) return;
   const v = C3D.v, x = c3CourseEnd(v);
@@ -1092,7 +1094,7 @@ SCENES.ch3End = {
   world() { C3D.dist = (C3D.dist || 0) + 0.3; c3DesertArt(); },
   ui() {
     dim(0.72); panel(150, 30, 660, 480);
-    text('TO BE CONTINUED...', W / 2, 52, 32, '#ffd23f', 'center');
+    text('CHAPTER 3 TALLY', W / 2, 52, 32, '#ffd23f', 'center');
     const k = Math.floor(this.t / 0.45), st = C3.stats;
     const rows = [['SPARK HITS', st.sparkHits], ['BATS SPAT ON', st.bats], ['SNAKES PUNCHED', st.snakes], ['BUZZARDS WHAPPED', st.buzzards], ['DRAGONFLIES', st.flies], ['ROCKS SMASHED', st.smashed], ['TORTOISE RIDES', st.rides], ['TRICKS LANDED', st.tricks], ['GRIND TIME', st.grind.toFixed(1) + 'S']];
     rows.forEach((r, i) => { if (k > i) { text(r[0], 200, 92 + i * 24, 16, '#ffffff'); text(String(r[1]), 760, 92 + i * 24, 16, '#f3d18b', 'right'); } });
@@ -1100,7 +1102,7 @@ SCENES.ch3End = {
     if (k > rows.length + 1) {
       text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 396, 16, '#ffd23f', 'center');
       text('JENNY IS OUT THERE SOMEWHERE...', W / 2, 432, 16, '#ff8a8a', 'center');
-      if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 472, 16, '#f3d18b', 'center');
+      if (Math.floor(clock * 2.5) % 2) text('TAP TO CONTINUE', W / 2, 472, 16, '#f3d18b', 'center');
     }
   },
   tap() { if (this.t < 0.45 * 11) this.t = 0.45 * 12; else toTitle(); },
@@ -1125,11 +1127,10 @@ const STORY3 = [{ cut: 'ch3Wake' }, { run: 'fuse' }, { cut: 'ch3Canyon' }, { run
 // =====================================================================
 //  HOOKS
 // =====================================================================
-const C3_TEST_BTN = { x: W - 246, y: 12, w: 234, h: 54 }; // TEST ONLY
+const C3_TEST_BTN = { x: W - 206, y: 8, w: 198, h: 40 }; // TEST ONLY
 window.addEventListener('pointerdown', e => {
   if (e.target !== cv || paused) return;
   const m = toGame(e);
-  if (state === 'title' && inBox(m.x, m.y, C3_TEST_BTN)) { e.stopPropagation(); e.preventDefault(); audio(); mouse = m; startScene('ch3Title'); return; }
   if (run && run.c3 && ['intro', 'play', 'clear'].includes(state)) {
     if (canPause() && inBox(m.x, m.y, PAUSE_BTN)) return;
     e.stopPropagation(); e.preventDefault(); audio();
@@ -1141,7 +1142,6 @@ const c3BaseDraw = draw;
 draw = function () {
   c3BaseDraw();
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(SW, 0);
-  if (state === 'title' && !paused) smallBtn(C3_TEST_BTN, 'CHAPTER 3 >');
   if (run && run.c3 && ['intro', 'play', 'clear', 'duelWait'].includes(state)) {
     const a = AMMO_BOX; rect(a.x - 14, a.y - 48, a.w + 28, a.h + 60, INK);
     panel(a.x - 6, a.y - 6, a.w + 12, a.h + 12);

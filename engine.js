@@ -1214,7 +1214,7 @@ function drawDialog() {
 }
 function drawTally() {
   dim(0.78); panel(150, 14, 660, 512);
-  text('FINAL TALLY', W / 2, 36, 32, '#ffd23f', 'center');
+  text('CHAPTER 1 TALLY', W / 2, 36, 32, '#ffd23f', 'center');
   const rows = [['OUTLAWS DROPPED ' + S.n.outlaw, S.pts.outlaw], ['HATS SHOT ' + S.n.hat, S.pts.hat], ['BOTTLES & GLASSES ' + S.n.bottle, S.pts.bottle],
     ['OTHER OBJECTS ' + S.n.obj, S.pts.obj], ['SHOWDOWN WITH MAD DOG', S.pts.duel]];
   const k = Math.floor(tallyT / 0.45);
@@ -1225,7 +1225,7 @@ function drawTally() {
     text('BULLETS FIRED ' + shots, 200, 354, 16, '#f3d18b'); text('ACCURACY ' + acc + '%', 200, 386, 16, '#f3d18b');
     text('PIANO NOTES PLAYED ' + pianoIdx, 200, 418, 16, '#f3d18b');
     text((newBest ? 'NEW BEST! ' : 'BEST ' + best + ' ') + diff.name, W / 2, 458, 16, '#ffd23f', 'center');
-    if (SCENES.ch2Room) { smallBtn(CONT_BTN, 'CONTINUE >'); smallBtn(TITLE_BTN, 'TITLE'); }
+    if (SCENES.ch2Room) smallBtn(CONT_BTN, 'CONTINUE >');
     else if (Math.floor(clock * 2.5) % 2) text('TAP FOR TITLE', W / 2, 490, 16, '#ffffff', 'center');
   }
 }
@@ -1328,7 +1328,7 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'tally') {
     if (tallyT < 0.45 * 7) { tallyT = 0.45 * 8; return; }
     if (!SCENES.ch2Room) { toTitle(); return; }
-    if (inBox(mouse.x, mouse.y, CONT_BTN)) { sfx.blip(); startScene('ch2Room'); } else if (inBox(mouse.x, mouse.y, TITLE_BTN)) toTitle();
+    if (inBox(mouse.x, mouse.y, CONT_BTN)) { sfx.blip(); startScene('ch2Room'); }
     return;
   }
   if (state === 'over') { if (inBox(mouse.x, mouse.y, TITLE_BTN)) { toTitle(); return; } lives = diff.lives; score = 0; levelStartScore = 0; S0 = newStats(); retry(); return; }
