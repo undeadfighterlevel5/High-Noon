@@ -9,6 +9,7 @@ const DIFFICULTY = {
   yellow:     { key: 'yellow',     name: 'YELLOW BELLY', mult: 2.2,  lives: 5, draw: 1.4,  hatG: 190, hits: 2, crashes: 5 },
   deputy:     { key: 'deputy',     name: 'DEPUTY',       mult: 1.35, lives: 5, draw: 0.9,  hatG: 260, hits: 1, crashes: 3 },
   gunslinger: { key: 'gunslinger', name: 'GUNSLINGER',   mult: 0.8,  lives: 3, draw: 0.55, hatG: 260, hits: 1, crashes: 1 },
+  squimp:     { key: 'squimp',     name: 'SQUIMP',       mult: 2.75, lives: 6, draw: 1.75, hatG: 143, hits: 2, crashes: 6 }, // 25% easier than Yellow Belly
 };
 
 // ---------------- UI SPRITES ----------------
@@ -47,9 +48,10 @@ let story = null, scene = null;
 const SCENES = {}; // chapters register custom screens here
 // run = a chapter-defined moving level (e.g. the wagon ride). It plugs into the normal play / hurt / clear flow.
 let run = null; const RUNS = {};
-const bests = { yellow: 0, deputy: 0, gunslinger: 0 }; // best score per mode
+const bests = { yellow: 0, deputy: 0, gunslinger: 0, squimp: 0 }; // best score per mode
 try { for (const k in bests) bests[k] = +(localStorage.getItem('hns_best_' + k) || 0); if (!bests.deputy) bests.deputy = +(localStorage.getItem('hns_best') || 0); } catch (e) {}
-const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 } };
+const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 }, squimp: { x: 340, y: 446, w: 280, h: 58 } };
+const bestAt = k => (k === 'squimp' ? [BTN[k].x + BTN[k].w + 20, BTN[k].y + 21, 'left'] : [BTN[k].x + BTN[k].w / 2, 440, 'center']); // SQUIMP's best sits beside its button
 const AMMO_BOX = { x: W + 11, y: H - 156, w: 138, h: 138 };
 const PAUSE_BTN = { x: W + 53, y: 84, w: 54, h: 54 }, SKIP_BTN = { x: W - 174, y: 12, w: 162, h: 54 };
 const CONT_BTN = { x: W / 2 - 140, y: 474, w: 280, h: 54 };
@@ -1108,12 +1110,12 @@ function drawHUD() { // drawn in game coords: x < 0 is the left panel, x > W is 
   const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)].filter(Boolean);
   panel(LX, 204, PW, 36 + all.length * 24);
   all.forEach((l, i) => text(l, LC, 224 + i * 24, 16, head && i === 0 ? '#f3d18b' : '#ffffff', 'center'));
-  const d = diff.lives, hx0 = Math.round(RC - (d * 27 - 6) / 2);
+  const d = diff.lives, hs = d > 5 ? 24 : 27, hx0 = Math.round(RC - (d * hs - hs + 21) / 2); // 6 hearts squeeze in a little tighter
   panel(RX, 12, PW, 54);
   for (let i = 0; i < d; i++) {
     const hurtHeart = wounded && i === lives - 1; // wounded = current heart shows half empty
-    spriteUI(HEART, i < lives && !hurtHeart ? HEART_PAL : HEART_EMPTY, hx0 + i * 27, 30, 3);
-    if (hurtHeart) spriteUI(HEART.map(row => row.slice(0, 3)), HEART_PAL, hx0 + i * 27, 30, 3);
+    spriteUI(HEART, i < lives && !hurtHeart ? HEART_PAL : HEART_EMPTY, hx0 + i * hs, 30, 3);
+    if (hurtHeart) spriteUI(HEART.map(row => row.slice(0, 3)), HEART_PAL, hx0 + i * hs, 30, 3);
   }
   if (canPause()) { const p = PAUSE_BTN; panel(p.x, p.y, p.w, p.h); rect(p.x + 17, p.y + 15, 7, 24, '#ffffff'); rect(p.x + 30, p.y + 15, 7, 24, '#ffffff'); }
   drawCylinder();
@@ -1257,8 +1259,8 @@ function draw() {
     text('BONUS: JUGGLE HATS, BUST BOTTLES!', W / 2, 216, 16, '#ffd23f', 'center');
     text('TAP THE CYLINDER TO RELOAD', W / 2, 244, 16, '#f3d18b', 'center');
     if (blink) text('CHOOSE YOUR BADGE', W / 2, 296, 16, '#ffffff', 'center');
-    button(BTN.yellow, 'YELLOW BELLY'); button(BTN.deputy, 'DEPUTY'); button(BTN.gunslinger, 'GUNSLINGER');
-    for (const k in BTN) if (bests[k]) text('BEST ' + bests[k], BTN[k].x + BTN[k].w / 2, 440, 16, '#ffd23f', 'center');
+    button(BTN.yellow, 'YELLOW BELLY'); button(BTN.deputy, 'DEPUTY'); button(BTN.gunslinger, 'GUNSLINGER'); button(BTN.squimp, 'SQUIMP');
+    for (const k in BTN) if (bests[k]) { const [bx, by, al] = bestAt(k); text('BEST ' + bests[k], bx, by, 16, '#ffd23f', al); }
   }
   if (state === 'scene' && scene.ui) scene.ui();
   if (state === 'cut') drawDialog();

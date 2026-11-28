@@ -345,7 +345,7 @@ function blitFlip(img, x, y, sc, flip, shear = 0) {
 //  World x: road runs from -1.5 to 1.5. z = distance ahead (1 = under the horses' noses).
 // =====================================================================
 const HZ = 66, FOC = 104, GND = LH - HZ, FAR = 24, SPAWN = 22;
-const RACE_V = { yellow: 7.5, deputy: 9, gunslinger: 13 }; // ridiculous speed
+const RACE_V = { yellow: 7.5, deputy: 9, gunslinger: 13, squimp: 5.6 }; // ridiculous speed
 const MPH_PER_V = 6.8;                                      // speedometer: 13 = 88 MPH
 const TRAIL_EASE = 1.35;                                    // riders give you this much extra time vs. chapter 1
 const RIDE = {};
@@ -680,7 +680,7 @@ RUNS.trail = {
     while (RIDE.ei < RACE.length && RACE[RIDE.ei][1] <= time) {
       const e = RACE[RIDE.ei++], k = e[0];
       if (k === 'R') RIDE.pending.push(e);
-      else if ((k === 'rock' || k === 'log' || k === 'hole') && diff.key === 'yellow' && (RIDE.obsN = (RIDE.obsN || 0) + 1) % 4 === 0) {} // Yellow Belly: every 4th obstacle never shows up
+      else if ((k === 'rock' || k === 'log' || k === 'hole') && (diff.key === 'yellow' || diff.key === 'squimp') && (RIDE.obsN = (RIDE.obsN || 0) + 1) && (diff.key === 'yellow' ? RIDE.obsN % 4 === 0 : Math.floor(RIDE.obsN * 0.5625) === Math.floor((RIDE.obsN - 1) * 0.5625))) {} // Yellow Belly: every 4th obstacle never shows up. Squimp: only 56% of them do
       else if (k === 'rock') RIDE.obs.push({ kind: 'rock', lanes: [e[2]], z: SPAWN });
       else if (k === 'log') RIDE.obs.push({ kind: 'log', lanes: [e[2], e[3]], z: SPAWN });
       else if (k === 'hole') RIDE.obs.push({ kind: 'hole', lanes: [e[2]], z: SPAWN });

@@ -468,6 +468,7 @@ const C4_ZONES = [ // depot coordinates; each spot's floor line, walk range and 
 for (const z of C4_ZONES) { z.ylo = z.wins ? Math.min(...z.wins.map(w => w[1])) - 1 : z.floor - 12; z.yhi = z.wins ? Math.max(...z.wins.map(w => w[1] + w[3])) : z.floor; }
 const C4_SNIPE = { // per badge: how many patrols, how fast they walk (depot px/s), how long they stop to look around
   yellow:     { n: 9, v: [4, 6],  pause: [1.6, 3.0] },
+  squimp:     { n: 7, v: [3, 4.5], pause: [2.0, 3.75] },
   deputy:     { n: 10, v: [6, 9],  pause: [1.0, 2.2] },
   gunslinger: { n: 12, v: [9, 13], pause: [0.5, 1.4] },
 };
@@ -1237,6 +1238,7 @@ SCENES.ch4Sunrise = {
 const C4E = {};
 const C4_ESC = { // per badge: cost of mistakes, how hard smashed rock walls set you back (px), how fast the wall creeps on its own
   yellow:     { cost: 0.6, rock: 16, creep: 1.2 },
+  squimp:     { cost: 0.45, rock: 12, creep: 0.9 },
   deputy:     { cost: 1.0, rock: 22, creep: 2.2 },
   gunslinger: { cost: 1.3, rock: 26, creep: 3.2 },
 };
