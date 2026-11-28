@@ -680,7 +680,7 @@ RUNS.trail = {
     while (RIDE.ei < RACE.length && RACE[RIDE.ei][1] <= time) {
       const e = RACE[RIDE.ei++], k = e[0];
       if (k === 'R') RIDE.pending.push(e);
-      else if ((k === 'rock' || k === 'log' || k === 'hole') && (diff.key === 'yellow' || diff.key === 'squimp') && (RIDE.obsN = (RIDE.obsN || 0) + 1) && (diff.key === 'yellow' ? RIDE.obsN % 4 === 0 : Math.floor(RIDE.obsN * 0.5625) === Math.floor((RIDE.obsN - 1) * 0.5625))) {} // Yellow Belly: every 4th obstacle never shows up. Squimp: only 56% of them do
+      else if ((k === 'rock' || k === 'log' || k === 'hole') && (diff.key === 'yellow' || diff.key === 'squimp') && (RIDE.obsN = (RIDE.obsN || 0) + 1) && (diff.key === 'yellow' ? RIDE.obsN % 4 === 0 : Math.floor(RIDE.obsN * 0.5625) === Math.floor((RIDE.obsN - 1) * 0.5625))) {} // Squimp: only ~56% show up
       else if (k === 'rock') RIDE.obs.push({ kind: 'rock', lanes: [e[2]], z: SPAWN });
       else if (k === 'log') RIDE.obs.push({ kind: 'log', lanes: [e[2], e[3]], z: SPAWN });
       else if (k === 'hole') RIDE.obs.push({ kind: 'hole', lanes: [e[2]], z: SPAWN });
@@ -1119,7 +1119,7 @@ SCENES.ch2End = {
       if (Math.floor(clock * 2.5) % 2) text('TAP TO CONTINUE', W / 2, 490, 16, '#f3d18b', 'center');
     }
   },
-  tap() { if (this.t < 0.45 * 7) this.t = 0.45 * 8; else toTitle(); },
+  tap() { if (this.t < 0.45 * 7) this.t = 0.45 * 8; else if (SCENES.ch3Title) startScene('ch3Title'); else toTitle(); }, // on to chapter 3
   key() { this.tap(); },
 };
 

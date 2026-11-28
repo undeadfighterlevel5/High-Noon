@@ -51,7 +51,7 @@ let run = null; const RUNS = {};
 const bests = { yellow: 0, deputy: 0, gunslinger: 0, squimp: 0 }; // best score per mode
 try { for (const k in bests) bests[k] = +(localStorage.getItem('hns_best_' + k) || 0); if (!bests.deputy) bests.deputy = +(localStorage.getItem('hns_best') || 0); } catch (e) {}
 const BTN = { yellow: { x: 30, y: 336, w: 280, h: 84 }, deputy: { x: 340, y: 336, w: 280, h: 84 }, gunslinger: { x: 650, y: 336, w: 280, h: 84 }, squimp: { x: 340, y: 446, w: 280, h: 58 } };
-const bestAt = k => (k === 'squimp' ? [BTN[k].x + BTN[k].w + 20, BTN[k].y + 21, 'left'] : [BTN[k].x + BTN[k].w / 2, 440, 'center']); // SQUIMP's best sits beside its button
+const bestAt = k => (k === 'squimp' ? [BTN[k].x + BTN[k].w + 20, BTN[k].y + 21, 'left'] : [BTN[k].x + BTN[k].w / 2, 440, 'center']);
 const AMMO_BOX = { x: W + 11, y: H - 156, w: 138, h: 138 };
 const PAUSE_BTN = { x: W + 53, y: 84, w: 54, h: 54 }, SKIP_BTN = { x: W - 174, y: 12, w: 162, h: 54 };
 const CONT_BTN = { x: W / 2 - 140, y: 474, w: 280, h: 54 };
@@ -1110,7 +1110,7 @@ function drawHUD() { // drawn in game coords: x < 0 is the left panel, x > W is 
   const all = inDuel ? ['SHOWDOWN', 'HIGH', 'NOON'] : [head, ...wrap(run ? run.name : LEVELS[levelIdx].name, 8)].filter(Boolean);
   panel(LX, 204, PW, 36 + all.length * 24);
   all.forEach((l, i) => text(l, LC, 224 + i * 24, 16, head && i === 0 ? '#f3d18b' : '#ffffff', 'center'));
-  const d = diff.lives, hs = d > 5 ? 24 : 27, hx0 = Math.round(RC - (d * hs - hs + 21) / 2); // 6 hearts squeeze in a little tighter
+  const d = diff.lives, hs = d > 5 ? 24 : 27, hx0 = Math.round(RC - (d * hs - hs + 21) / 2);
   panel(RX, 12, PW, 54);
   for (let i = 0; i < d; i++) {
     const hurtHeart = wounded && i === lives - 1; // wounded = current heart shows half empty
